@@ -1,0 +1,621 @@
+<!doctype html>
+<html lang="en-US" class="no-js aws-lng-en_US" xmlns="http://www.w3.org/1999/xhtml" data-aws-assets="https://a0.awsstatic.com" data-js-version="1.0.675" data-css-version="1.0.538" data-static-assets="https://a0.awsstatic.com" prefix="og: https://ogp.me/ns#">
+ <head><script type="text/javascript" src="https://web-static.archive.org/_static/js/bundle-playback.js?v=2N_sDSC0" charset="utf-8"></script>
+<script type="text/javascript" src="https://web-static.archive.org/_static/js/wombat.js?v=o9P2E1FK" charset="utf-8"></script>
+<script>window.RufflePlayer=window.RufflePlayer||{};window.RufflePlayer.config={"autoplay":"on","unmuteOverlay":"hidden","showSwfDownload":true};</script>
+<script type="text/javascript" src="https://web-static.archive.org/_static/js/ruffle/ruffle.js"></script>
+<script type="text/javascript">
+    __wm.init("https://web.archive.org/web");
+  __wm.wombat("https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/","20231228221709","https://web.archive.org/","web","https://web-static.archive.org/_static/",
+	      "1703801829");
+</script>
+<link rel="stylesheet" type="text/css" href="https://web-static.archive.org/_static/css/banner-styles.css?v=1utQkbB3" />
+<link rel="stylesheet" type="text/css" href="https://web-static.archive.org/_static/css/iconochive.css?v=3PDvdIFv" />
+<!-- End Wayback Rewrite JS Include -->
+ 
+  <meta charset="UTF-8"> 
+  <meta name="viewport" content="width=device-width, initial-scale=1"> 
+  <title>Exponential Backoff And Jitter | AWS Architecture Blog</title> 
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1"> 
+  <meta http-equiv="Content-Security-Policy" content="" data-report-uri="https://prod-us-west-2.csp-report.marketing.aws.dev/submit"> 
+  <script src="https://web.archive.org/web/20231228221709js_/https://a0.awsstatic.com/libra/1.0.551/csp/csp-report.js"></script> 
+  <meta name="robots" content="max-image-preview:large"> 
+  <link rel="dns-prefetch" href="//web.archive.org/web/20231228221709/https://a0.awsstatic.com/"> 
+  <style id="global-styles-inline-css" type="text/css">
+body{--wp--preset--color--black: #000000;--wp--preset--color--cyan-bluish-gray: #abb8c3;--wp--preset--color--white: #ffffff;--wp--preset--color--pale-pink: #f78da7;--wp--preset--color--vivid-red: #cf2e2e;--wp--preset--color--luminous-vivid-orange: #ff6900;--wp--preset--color--luminous-vivid-amber: #fcb900;--wp--preset--color--light-green-cyan: #7bdcb5;--wp--preset--color--vivid-green-cyan: #00d084;--wp--preset--color--pale-cyan-blue: #8ed1fc;--wp--preset--color--vivid-cyan-blue: #0693e3;--wp--preset--color--vivid-purple: #9b51e0;--wp--preset--gradient--vivid-cyan-blue-to-vivid-purple: linear-gradient(135deg,rgba(6,147,227,1) 0%,rgb(155,81,224) 100%);--wp--preset--gradient--light-green-cyan-to-vivid-green-cyan: linear-gradient(135deg,rgb(122,220,180) 0%,rgb(0,208,130) 100%);--wp--preset--gradient--luminous-vivid-amber-to-luminous-vivid-orange: linear-gradient(135deg,rgba(252,185,0,1) 0%,rgba(255,105,0,1) 100%);--wp--preset--gradient--luminous-vivid-orange-to-vivid-red: linear-gradient(135deg,rgba(255,105,0,1) 0%,rgb(207,46,46) 100%);--wp--preset--gradient--very-light-gray-to-cyan-bluish-gray: linear-gradient(135deg,rgb(238,238,238) 0%,rgb(169,184,195) 100%);--wp--preset--gradient--cool-to-warm-spectrum: linear-gradient(135deg,rgb(74,234,220) 0%,rgb(151,120,209) 20%,rgb(207,42,186) 40%,rgb(238,44,130) 60%,rgb(251,105,98) 80%,rgb(254,248,76) 100%);--wp--preset--gradient--blush-light-purple: linear-gradient(135deg,rgb(255,206,236) 0%,rgb(152,150,240) 100%);--wp--preset--gradient--blush-bordeaux: linear-gradient(135deg,rgb(254,205,165) 0%,rgb(254,45,45) 50%,rgb(107,0,62) 100%);--wp--preset--gradient--luminous-dusk: linear-gradient(135deg,rgb(255,203,112) 0%,rgb(199,81,192) 50%,rgb(65,88,208) 100%);--wp--preset--gradient--pale-ocean: linear-gradient(135deg,rgb(255,245,203) 0%,rgb(182,227,212) 50%,rgb(51,167,181) 100%);--wp--preset--gradient--electric-grass: linear-gradient(135deg,rgb(202,248,128) 0%,rgb(113,206,126) 100%);--wp--preset--gradient--midnight: linear-gradient(135deg,rgb(2,3,129) 0%,rgb(40,116,252) 100%);--wp--preset--duotone--dark-grayscale: url('/web/20231228221709im_/https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/#wp-duotone-dark-grayscale');--wp--preset--duotone--grayscale: url('/web/20231228221709im_/https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/#wp-duotone-grayscale');--wp--preset--duotone--purple-yellow: url('/web/20231228221709im_/https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/#wp-duotone-purple-yellow');--wp--preset--duotone--blue-red: url('/web/20231228221709im_/https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/#wp-duotone-blue-red');--wp--preset--duotone--midnight: url('/web/20231228221709im_/https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/#wp-duotone-midnight');--wp--preset--duotone--magenta-yellow: url('/web/20231228221709im_/https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/#wp-duotone-magenta-yellow');--wp--preset--duotone--purple-green: url('/web/20231228221709im_/https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/#wp-duotone-purple-green');--wp--preset--duotone--blue-orange: url('/web/20231228221709im_/https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/#wp-duotone-blue-orange');--wp--preset--font-size--small: 13px;--wp--preset--font-size--medium: 20px;--wp--preset--font-size--large: 36px;--wp--preset--font-size--x-large: 42px;}.has-black-color{color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-color{color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-color{color: var(--wp--preset--color--white) !important;}.has-pale-pink-color{color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-color{color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-color{color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-color{color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-color{color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-color{color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-color{color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-color{color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-color{color: var(--wp--preset--color--vivid-purple) !important;}.has-black-background-color{background-color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-background-color{background-color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-background-color{background-color: var(--wp--preset--color--white) !important;}.has-pale-pink-background-color{background-color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-background-color{background-color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-background-color{background-color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-background-color{background-color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-background-color{background-color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-background-color{background-color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-background-color{background-color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-background-color{background-color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-background-color{background-color: var(--wp--preset--color--vivid-purple) !important;}.has-black-border-color{border-color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-border-color{border-color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-border-color{border-color: var(--wp--preset--color--white) !important;}.has-pale-pink-border-color{border-color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-border-color{border-color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-border-color{border-color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-border-color{border-color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-border-color{border-color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-border-color{border-color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-border-color{border-color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-border-color{border-color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-border-color{border-color: var(--wp--preset--color--vivid-purple) !important;}.has-vivid-cyan-blue-to-vivid-purple-gradient-background{background: var(--wp--preset--gradient--vivid-cyan-blue-to-vivid-purple) !important;}.has-light-green-cyan-to-vivid-green-cyan-gradient-background{background: var(--wp--preset--gradient--light-green-cyan-to-vivid-green-cyan) !important;}.has-luminous-vivid-amber-to-luminous-vivid-orange-gradient-background{background: var(--wp--preset--gradient--luminous-vivid-amber-to-luminous-vivid-orange) !important;}.has-luminous-vivid-orange-to-vivid-red-gradient-background{background: var(--wp--preset--gradient--luminous-vivid-orange-to-vivid-red) !important;}.has-very-light-gray-to-cyan-bluish-gray-gradient-background{background: var(--wp--preset--gradient--very-light-gray-to-cyan-bluish-gray) !important;}.has-cool-to-warm-spectrum-gradient-background{background: var(--wp--preset--gradient--cool-to-warm-spectrum) !important;}.has-blush-light-purple-gradient-background{background: var(--wp--preset--gradient--blush-light-purple) !important;}.has-blush-bordeaux-gradient-background{background: var(--wp--preset--gradient--blush-bordeaux) !important;}.has-luminous-dusk-gradient-background{background: var(--wp--preset--gradient--luminous-dusk) !important;}.has-pale-ocean-gradient-background{background: var(--wp--preset--gradient--pale-ocean) !important;}.has-electric-grass-gradient-background{background: var(--wp--preset--gradient--electric-grass) !important;}.has-midnight-gradient-background{background: var(--wp--preset--gradient--midnight) !important;}.has-small-font-size{font-size: var(--wp--preset--font-size--small) !important;}.has-medium-font-size{font-size: var(--wp--preset--font-size--medium) !important;}.has-large-font-size{font-size: var(--wp--preset--font-size--large) !important;}.has-x-large-font-size{font-size: var(--wp--preset--font-size--x-large) !important;}
+</style> 
+  <link rel="canonical" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/"> 
+  <meta property="og:locale" content="en_US"> 
+  <meta property="og:site_name" content="Amazon Web Services"> 
+  <meta property="og:title" content="Exponential Backoff And Jitter | Amazon Web Services"> 
+  <meta property="og:type" content="article"> 
+  <meta property="og:url" content="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/"> 
+  <meta property="og:description" content="Update (May 2023): After 8 years, this solution continues to serve as a pillar for how Amazon builds remote client libraries for resilient systems. Most AWS SDKs now support exponential backoff and jitter as part of their retry behavior when using standard or adaptive modes. Consequently, this pattern can be leveraged without having to incorporate […]"> 
+  <meta property="og:image" content="https://web.archive.org/web/20231228221709im_/https://d2908q01vomqb2.cloudfront.net/fc074d501302eb2b93e2554793fcaf50b3bf7291/2017/10/03/exponential-backoff-and-jitter-blog-figure-12.png"> 
+  <meta property="og:image:width" content="600"> 
+  <meta property="og:image:height" content="400"> 
+  <meta property="og:updated_time" content="2023-05-03T14:38:33-07:00"> 
+  <meta property="article:publisher" content="https://www.facebook.com/amazonwebservices"> 
+  <meta property="article:section" content="Architecture"> 
+  <meta property="article:tag" content="Architecture"> 
+  <meta property="article:tag" content="Scalability"> 
+  <meta property="article:published_time" content="2015-03-04T10:48:56-08:00"> 
+  <meta property="article:modified_time" content="2023-05-03T14:38:33-07:00"> 
+  <meta name="twitter:card" content="summary_large_image"> 
+  <meta name="twitter:site" content="@awscloud"> 
+  <meta name="twitter:domain" content="https://aws.amazon.com/blogs/"> 
+  <meta name="twitter:title" content="Exponential Backoff And Jitter | Amazon Web Services"> 
+  <meta name="twitter:description" content="Update (May 2023): After 8 years, this solution continues to serve as a pillar for how Amazon builds remote client libraries for resilient systems. Most AWS SDKs now support exponential backoff and jitter as part of their retry behavior when using standard or adaptive modes. Consequently, this pattern can be leveraged without having to incorporate […]"> 
+  <meta name="twitter:image" content="https://web.archive.org/web/20231228221709im_/https://d2908q01vomqb2.cloudfront.net/fc074d501302eb2b93e2554793fcaf50b3bf7291/2017/10/03/exponential-backoff-and-jitter-blog-figure-12.png"> 
+  <link rel="icon" type="image/ico" href="https://web.archive.org/web/20231228221709im_/https://a0.awsstatic.com/main/images/site/fav/favicon.ico"> 
+  <link rel="shortcut icon" type="image/ico" href="https://web.archive.org/web/20231228221709im_/https://a0.awsstatic.com/main/images/site/fav/favicon.ico"> 
+  <link rel="apple-touch-icon" sizes="57x57" href="https://web.archive.org/web/20231228221709im_/https://a0.awsstatic.com/main/images/site/touch-icon-iphone-114-smile.png"> 
+  <link rel="apple-touch-icon" sizes="72x72" href="https://web.archive.org/web/20231228221709im_/https://a0.awsstatic.com/main/images/site/touch-icon-ipad-144-smile.png"> 
+  <link rel="apple-touch-icon" sizes="114x114" href="https://web.archive.org/web/20231228221709im_/https://a0.awsstatic.com/main/images/site/touch-icon-iphone-114-smile.png"> 
+  <link rel="apple-touch-icon" sizes="144x144" href="https://web.archive.org/web/20231228221709im_/https://a0.awsstatic.com/main/images/site/touch-icon-ipad-144-smile.png"> 
+  <link rel="home" type="application/rss+xml" title="RSS 2.0 Feed" href="https://aws.amazon.com/blogs/architecture/feed/"> 
+  <meta name="robots" content="index, follow"> 
+  <link rel="stylesheet" href="https://web.archive.org/web/20231228221709cs_/https://a0.awsstatic.com/libra-css/css/1.0.485/style-awsm.css"> 
+  <link rel="stylesheet" href="https://web.archive.org/web/20231228221709cs_/https://a0.awsstatic.com/aws-blog/1.0.68/css/blog.css"> 
+  <script type="application/json" id="aws-page-settings">
+    {"blogPageTitle":"Exponential Backoff And Jitter","currentLanguage":"en-US","libraCSSPath":"https:\/\/web.archive.org\/web\/20231228221709\/https:\/\/a0.awsstatic.com\/libra-css\/css\/1.0.485","requireBaseUrl":"https:\/\/web.archive.org\/web\/20231228221709\/https:\/\/a0.awsstatic.com","requirePackages":[{"name":"libra","location":"libra\/1.0.551"}],"requirePaths":{"aws-blog":"https:\/\/web.archive.org\/web\/20231228221709\/https:\/\/a0.awsstatic.com\/aws-blog\/1.0.68\/js","directories":"https:\/\/web.archive.org\/web\/20231228221709\/https:\/\/a0.awsstatic.com\/libra\/1.0.551\/directories","librastandardlib":"https:\/\/web.archive.org\/web\/20231228221709\/https:\/\/a0.awsstatic.com\/libra\/1.0.551\/librastandardlib","scripts":"https:\/\/web.archive.org\/web\/20231228221709\/https:\/\/a0.awsstatic.com\/libra\/1.0.551\/v1-polyfills\/scripts"},"supportedLanguages":["ar","de","en","es","fr","id","it","jp","ko","pt","ru","th","tr","vi","cn","tw"],"currentStage":"Prod"}  </script> 
+  <script src="https://web.archive.org/web/20231228221709js_/https://a0.awsstatic.com/aws-blog/1.0.68/js/blog-head.js"></script> 
+  <script src="https://web.archive.org/web/20231228221709js_/https://a0.awsstatic.com/s_code/js/3.0/awshome_s_code.js"></script> 
+  <script type="application/json" id="target-mediator">
+    {"supportedLanguages":["ar","de","en","es","fr","id","it","jp","ko","pt","ru","th","tr","vi","cn","tw"],"pageLanguage":"en","customParams":{"category0":"Architecture"}}  </script> 
+  <script src="https://web.archive.org/web/20231228221709js_/https://a0.awsstatic.com/target/1.0.121/aws-target-mediator.js"></script> 
+  <noscript> 
+   <style>.js-mbox { visibility: visible; }</style> 
+  </noscript> 
+ </head> 
+ <body class="awsm aws-blogs-page aws-blogs-page-type-single"> 
+  <script id="awsc-panorama-bundle" src="https://web.archive.org/web/20231228221709js_/https://prod.pa.cdn.uis.awsstatic.com/panorama-nav-init.js" data-config="{&quot;appEntity&quot;:&quot;aws-marketing&quot;,&quot;region&quot;:&quot;us-west-1&quot;,&quot;service&quot;:&quot;blogs-site&quot;}" async="true"></script> 
+  <a id="aws-page-skip-to-main" class="lb-sr-only lb-sr-only-focusable lb-bold lb-skip-el" href="#aws-page-content-main"> Skip to Main Content</a> 
+  <header id="aws-page-header" class="awsm m-page-header lb-with-mobile-subrow" role="banner"> 
+   <div id="m-nav" class="m-nav" role="navigation"> 
+    <div class="m-nav-header lb-clearfix" data-menu-url="https://s0.awsstatic.com/en_US/nav/v3/panel-content/desktop/index.html"> 
+     <div class="m-nav-logo"> 
+      <div class="lb-bg-logo aws-amazon_web_services_smile-header-desktop-en"> 
+       <a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/?nc2=h_lg"><span>Click here to return to Amazon Web Services homepage</span></a> 
+      </div> 
+     </div> 
+     <nav class="m-nav-secondary-links" style="min-width: 620px" aria-label="Secondary navigation"> 
+      <a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/contact-us/?nc2=h_header">Contact Us</a> 
+      <a class="lb-txt-none lb-tiny-iblock lb-txt-13 lb-txt lb-has-trigger-indicator" href="#" data-mbox-ignore="true" data-lb-popover-trigger="popover-support-selector" role="button" aria-expanded="false" aria-label="Explore support options" id="popover-popover-support-selector-trigger" aria-controls="popover-support-selector" aria-haspopup="true"> Support&nbsp; <i class="icon-caret-down lb-trigger-mount"></i></a> 
+      <a id="m-nav-language-selector" class="lb-tiny-iblock lb-txt lb-has-trigger-indicator" href="#" data-lb-popover-trigger="popover-language-selector" data-language="en" aria-label="Set site language" role="button" aria-controls="popover-language-selector" aria-expanded="false" aria-haspopup="true">English&nbsp;<i class="icon-caret-down lb-trigger-mount"></i></a> 
+      <a class="lb-tiny-iblock lb-txt lb-has-trigger-indicator" href="#" data-lb-popover-trigger="popover-my-account" aria-label="Access account options" role="button" aria-controls="popover-my-account" aria-expanded="false" aria-haspopup="true">My Account&nbsp;<i class="icon-caret-down lb-trigger-mount"></i></a> 
+      <div class="m-nav-cta-btn"> 
+       <div class="lb-mbox js-mbox" data-lb-comp="mbox" data-lb-comp-ignore="true" data-mbox="en_header_nav_cta"> 
+        <div class="lb-data-attr-wrapper data-attr-wrapper" data-da-type="so" data-da-so-type="viewport" data-da-so-language="en" data-da-so-category="monitoring" data-da-so-name="nav-buttons" data-da-so-version="sign-up-sign-in-all" data-da-so-url="nav"> 
+         <div class="data-attr-wrapper lb-tiny-iblock lb-none-pad lb-box" data-da-type="so" data-da-so-type="viewport" data-da-so-language="en" data-da-so-category="monitoring" data-da-so-name="nav-buttons" data-da-so-version="prospect-sign-in" data-da-so-url="all"> 
+          <a class="lb-txt-none lb-tiny-iblock lb-txt-13 lb-txt" style="padding-top:8px; padding-right:13px;" href="https://web.archive.org/web/20231228221709/https://console.aws.amazon.com/console/home?nc2=h_ct&amp;src=header-signin"> Sign In</a> 
+         </div> 
+         <div class="data-attr-wrapper lb-tiny-iblock lb-none-v-margin lb-btn" data-da-type="so" data-da-so-type="viewport" data-da-so-language="en" data-da-so-category="monitoring" data-da-so-name="nav-buttons" data-da-so-version="prospect-signup" data-da-so-url="all"> 
+          <a class="lb-btn-p-primary" href="https://web.archive.org/web/20231228221709/https://portal.aws.amazon.com/gp/aws/developer/registration/index.html?nc2=h_ct&amp;src=header_signup" data-trk-params="{&quot;trkOverrideWithQs&quot;:true}" role="button"> <span> Create an AWS Account</span> </a> 
+         </div> 
+        </div> 
+       </div> 
+      </div> 
+     </nav> 
+     <div class="m-nav-primary-group"> 
+      <nav class="m-nav-primary-links" aria-label="Primary navigation"> 
+       <i class="m-nav-angle-left-icon" aria-hidden="true"></i> 
+       <ul> 
+        <li aria-expanded="false"><span><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/products/?nc2=h_ql_prod" data-panel="m-nav-panel-products">Products</a></span></li> 
+        <li aria-expanded="false"><span><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/solutions/?nc2=h_ql_sol" data-panel="m-nav-panel-solutions">Solutions</a></span></li> 
+        <li aria-expanded="false"><span><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/pricing/?nc2=h_ql_pr" data-panel="m-nav-panel-pricing">Pricing</a></span></li> 
+        <li aria-expanded="false"><span><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/documentation-overview/?nc2=h_ql_doc_do" data-panel="m-nav-panel-documentation">Documentation</a></span></li> 
+        <li aria-expanded="false"><span><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/getting-started/?nc2=h_ql_le" data-panel="m-nav-panel-learn">Learn</a></span></li> 
+        <li aria-expanded="false"><span><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/partners/?nc2=h_ql_pn" data-panel="m-nav-panel-partner">Partner Network</a></span></li> 
+        <li aria-expanded="false"><span><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/marketplace/?nc2=h_ql_mp" data-panel="m-nav-panel-marketplace">AWS Marketplace</a></span></li> 
+        <li aria-expanded="false"><span><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/customer-enablement/?nc2=h_ql_ce" data-panel="m-nav-panel-customer">Customer Enablement</a></span></li> 
+        <li aria-expanded="false"><span><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/events/?nc2=h_ql_ev" data-panel="m-nav-panel-events">Events</a></span></li> 
+        <li aria-expanded="false"><span><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/contact-us/?nc2=h_ql_exm" data-panel="m-nav-panel-more">Explore More </a></span></li> 
+       </ul> 
+       <div class="m-nav-icon-group"> 
+        <i class="m-nav-angle-right-icon" aria-hidden="true"></i> 
+        <i class="m-nav-search-icon" tabindex="0" role="button" aria-expanded="false" aria-label="Search"></i> 
+       </div> 
+      </nav> 
+      <div id="m-nav-desktop-search" class="m-nav-search"> 
+       <form action="https://web.archive.org/web/20231228221709/https://aws.amazon.com/search/" role="search"> 
+        <div class="m-typeahead" data-directory-id="typeahead-suggestions" data-lb-comp="typeahead"> 
+         <input class="m-nav-search-field" placeholder="Search" autocomplete="off" spellcheck="false" dir="auto" type="text" name="searchQuery"> 
+        </div> 
+       </form> 
+       <i class="m-nav-close-icon" role="button" aria-label="Close"></i> 
+      </div> 
+     </div> 
+    </div> 
+    <div class="lb-popover lb-popover-aui lb-popover-tiny" data-lb-comp="popover" data-id="popover-language-selector" id="popover-language-selector" aria-modal="false" aria-labelledby="popover-popover-language-selector-trigger" data-action="hover" data-position="top"> 
+     <a class="lb-popover-close" role="button" tabindex="0" aria-label="Close" title="Close"> <span class="lb-sr-only">Close</span> </a> 
+     <div class="lb-grid lb-row lb-row-max-large lb-snap"> 
+      <div class="lb-col lb-tiny-24 lb-mid-12"> 
+       <ul class="lb-txt-none lb-ul lb-list-style-none lb-tiny-ul-block"> 
+        <li lang="ar-SA" translate="no" data-language="ar"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/ar/?nc1=h_ls">عربي</a></li> 
+        <li lang="id-ID" translate="no" data-language="id"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/id/?nc1=h_ls">Bahasa Indonesia</a></li> 
+        <li lang="de-DE" translate="no" data-language="de"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/de/?nc1=h_ls">Deutsch</a></li> 
+        <li lang="en-US" translate="no" data-language="en"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/?nc1=h_ls">English</a></li> 
+        <li lang="es-ES" translate="no" data-language="es"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/es/?nc1=h_ls">Español</a></li> 
+        <li lang="fr-FR" translate="no" data-language="fr"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/fr/?nc1=h_ls">Français</a></li> 
+        <li lang="it-IT" translate="no" data-language="it"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/it/?nc1=h_ls">Italiano</a></li> 
+        <li lang="pt-BR" translate="no" data-language="pt"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/pt/?nc1=h_ls">Português</a></li> 
+       </ul> 
+      </div> 
+      <div class="lb-col lb-tiny-24 lb-mid-12"> 
+       <ul class="lb-txt-none lb-ul lb-list-style-none lb-tiny-ul-block"> 
+        <li lang="vi-VN" translate="no" data-language="vi"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/vi/?nc1=f_ls">Tiếng Việt</a></li> 
+        <li lang="tr-TR" translate="no" data-language="tr"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/tr/?nc1=h_ls">Türkçe</a></li> 
+        <li lang="ru-RU" translate="no" data-language="ru"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/ru/?nc1=h_ls">Ρусский</a></li> 
+        <li lang="th-TH" translate="no" data-language="th"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/th/?nc1=f_ls">ไทย</a></li> 
+        <li lang="ja-JP" translate="no" data-language="jp"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/jp/?nc1=h_ls">日本語</a></li> 
+        <li lang="ko-KR" translate="no" data-language="ko"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/ko/?nc1=h_ls">한국어</a></li> 
+        <li lang="zh-CN" translate="no" data-language="cn"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/cn/?nc1=h_ls">中文 (简体)</a></li> 
+        <li lang="zh-TW" translate="no" data-language="tw"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/tw/?nc1=h_ls">中文 (繁體)</a></li> 
+       </ul> 
+      </div> 
+     </div> 
+    </div> 
+    <div class="lb-popover lb-popover-aui lb-popover-tiny" data-lb-comp="popover" data-id="popover-my-account" id="popover-my-account" aria-modal="false" aria-labelledby="popover-popover-my-account-trigger" data-action="hover" data-position="top"> 
+     <a class="lb-popover-close" role="button" tabindex="0" aria-label="Close" title="Close"> <span class="lb-sr-only">Close</span> </a> 
+     <ul class="lb-txt-none lb-ul lb-list-style-none lb-tiny-ul-block"> 
+      <li class="m-no-auth" data-myaws-auth-only="true"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/profile/?nc2=h_m_mc">My Profile</a></li> 
+      <li class="m-no-auth" data-myaws-auth-only="true"><a href="https://web.archive.org/web/20231228221709/https://auth.aws.amazon.com/sign-out/?nc2=h_m_mc">Sign out of AWS Builder ID</a></li> 
+      <li><a href="https://web.archive.org/web/20231228221709/https://console.aws.amazon.com/?nc2=h_m_mc">AWS Management Console</a></li> 
+      <li><a href="https://web.archive.org/web/20231228221709/https://console.aws.amazon.com/billing/home#/account?nc2=h_m_ma">Account Settings</a></li> 
+      <li><a href="https://web.archive.org/web/20231228221709/https://console.aws.amazon.com/billing/home?nc2=h_m_bc">Billing &amp; Cost Management</a></li> 
+      <li><a href="https://web.archive.org/web/20231228221709/https://console.aws.amazon.com/iam/home?nc2=h_m_sc#security_credential">Security Credentials</a></li> 
+      <li><a href="https://web.archive.org/web/20231228221709/https://phd.aws.amazon.com/?nc2=h_m_sc">AWS Personal Health Dashboard</a></li> 
+     </ul> 
+    </div> 
+    <div class="lb-popover lb-popover-aui lb-popover-tiny" data-lb-comp="popover" data-id="popover-support-selector" id="popover-support-selector" aria-modal="false" aria-labelledby="popover-popover-support-selector-trigger" data-action="hover" data-position="top"> 
+     <a class="lb-popover-close" role="button" tabindex="0" aria-label="Close" title="Close"> <span class="lb-sr-only">Close</span> </a> 
+     <ul class="lb-txt-none lb-ul lb-list-style-none lb-tiny-ul-block"> 
+      <li><a href="https://web.archive.org/web/20231228221709/https://console.aws.amazon.com/support/home/?nc2=h_ql_cu">Support Center</a></li> 
+      <li><a href="https://web.archive.org/web/20231228221709/https://iq.aws.amazon.com/?utm=mkt.nav">Expert Help</a></li> 
+      <li><a href="https://web.archive.org/web/20231228221709/https://repost.aws/knowledge-center/?nc2=h_m_ma">Knowledge Center</a></li> 
+      <li><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/premiumsupport/?nc2=h_m_bc">AWS Support Overview</a></li> 
+      <li><a href="https://web.archive.org/web/20231228221709/https://repost.aws/">AWS re:Post</a></li> 
+     </ul> 
+    </div> 
+    <script type="text/x-handlebars-template" data-hbs-template-path="nav-desktop/suggestions" data-hbs-context="{&quot;pricingText&quot;:&quot;Pricing&quot;,&quot;documentationText&quot;:&quot;Documentation&quot;,&quot;calculatorText&quot;:&quot;Calculator&quot;}"></script> 
+    <script type="text/x-handlebars-template" data-hbs-template-path="nav-desktop/products-head" data-hbs-context="{&quot;productsText&quot;:&quot;Products&quot;}"></script> 
+    <script type="text/x-handlebars-template" data-hbs-template-path="nav-desktop/keypages-head" data-hbs-context="{&quot;relatedPagesText&quot;:&quot;Related Pages&quot;}"></script> 
+    <script type="text/x-handlebars-template" data-hbs-template-path="nav-desktop/tutorials-head" data-hbs-context="{&quot;tutorialsText&quot;:&quot;Tutorials&quot;}"></script> 
+    <script type="text/x-handlebars-template" data-hbs-template-path="nav-desktop/blogs-head" data-hbs-context="{&quot;blogsText&quot;:&quot;Blogs&quot;}"></script> 
+    <script type="text/x-handlebars-template" data-hbs-template-path="nav-desktop/see-all" data-hbs-context="{&quot;resultsText&quot;:&quot;See more results for&quot;}"></script> 
+   </div> 
+   <div id="m-nav-mobile" class="m-nav-mobile"> 
+    <div id="m-nav-mobile-header" class="m-nav-mobile-header m-nav-mobile-with-sub-row" data-menu-url="https://s0.awsstatic.com/en_US/nav/v3/panel-content/mobile/index.html"> 
+     <div class="lb-bg-logo aws-amazon_web_services_smile-header-mobile-en"> 
+      <a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/?nc2=h_lg"><span>Click here to return to Amazon Web Services homepage</span></a> 
+     </div> 
+     <div class="m-nav-mobile-button-group"> 
+      <i class="m-nav-mobile-button icon-search" tabindex="0" role="button" aria-expanded="false" aria-label="Search"></i> 
+      <i class="m-nav-mobile-button icon-reorder" tabindex="0" role="button" aria-expanded="false" aria-label="Menu"></i> 
+     </div> 
+     <div id="m-nav-mobile-sub-row" class="m-nav-mobile-sub-row"> 
+      <div class="data-attr-wrapper lb-btn" data-da-type="so" data-da-so-category="monitoring" data-da-so-language="en" data-da-so-name="global-mobile-sticky-cta-buttons" data-da-so-type="viewport" data-da-so-version="get-started-for-free-cta" data-da-so-url="all"> 
+       <a class="lb-btn-p-primary" href="https://web.archive.org/web/20231228221709/https://portal.aws.amazon.com/gp/aws/developer/registration/index.html?nc2=h_mobile" role="button"> <span> Get Started for Free</span> </a> 
+      </div> 
+      <div class="data-attr-wrapper lb-btn" data-da-type="so" data-da-so-category="monitoring" data-da-so-language="en" data-da-so-name="global-mobile-sticky-cta-buttons" data-da-so-type="viewport" data-da-so-version="contact-us"> 
+       <a class="lb-btn-p" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/contact-us/?nc2=h_mobile" role="button"> <span> Contact Us</span> </a> 
+      </div> 
+     </div> 
+    </div> 
+    <div id="m-nav-mobile-search" class="m-nav-mobile-search"> 
+     <form action="https://web.archive.org/web/20231228221709/https://aws.amazon.com/search" role="search"> 
+      <div class="m-typeahead"> 
+       <input class="m-nav-search-field" placeholder="Search" autocomplete="off" spellcheck="false" dir="auto" type="text" name="searchQuery"> 
+      </div> 
+     </form> 
+    </div> 
+    <nav id="m-nav-trimdown" role="navigation"> 
+     <ul class="m-nav-mobile-menu-group"> 
+      <li> <a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/products/?nc2=h_mo">Products</a> </li> 
+      <li> <a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/solutions/?nc2=h_mo">Solutions</a> </li> 
+      <li> <a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/pricing/?nc2=h_mo">Pricing</a> </li> 
+      <li> <a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/what-is-aws/?nc2=h_mo">Introduction to AWS</a> </li> 
+      <li> <a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/getting-started/?nc2=h_mo">Getting Started</a> </li> 
+      <li> <a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/documentation-overview/?nc2=h_mo">Documentation</a> </li> 
+      <li> <a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/training/?nc2=h_mo">Training and Certification</a> </li> 
+      <li> <a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/developer/?nc2=h_mo">Developer Center</a> </li> 
+      <li> <a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/solutions/case-studies/?nc2=h_mo">Customer Success</a> </li> 
+      <li> <a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/partners/?nc2=h_mo">Partner Network</a> </li> 
+      <li> <a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/marketplace/?nc2=h_mo">AWS Marketplace</a> </li> 
+      <li> <a href="https://web.archive.org/web/20231228221709/https://console.aws.amazon.com/support/home?nc2=h_ql_cu">Support</a> </li> 
+      <li> <a href="https://web.archive.org/web/20231228221709/https://repost.aws/">AWS re:Post</a> </li> 
+      <li> <a href="https://web.archive.org/web/20231228221709/https://console.aws.amazon.com/console/home">Log into Console</a> </li> 
+      <li> <a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/console/mobile/">Download the Mobile App</a> </li> 
+     </ul> 
+    </nav> 
+   </div> 
+  </header> 
+  <div class="awsm"> 
+   <div class="lb-blog-nav" data-lb-comp="aws-blog:blog-nav" data-lb-sticky-header="true"> 
+    <div class="lb-row lb-row-max-xlarge lb-snap"> 
+     <div class="lb-blog-nav-content"> 
+      <div class="lb-blog-nav-links"> 
+       <a class="lb-txt-none lb-txt" href="/web/20231228221709/https://aws.amazon.com/blogs" data-trk-params="{&quot;trkOverrideWithQs&quot;:true}"> AWS Blog Home</a> 
+       <a class="lb-txt-none lb-txt lb-has-trigger-indicator" href="#" data-mbox-ignore="true" data-lb-popover-trigger="blog-category" role="button" aria-expanded="false" aria-label="Select blog category" id="popover-blog-category-trigger" aria-controls="blog-category" aria-haspopup="true" data-trk-params="{&quot;trkOverrideWithQs&quot;:true}"> Blogs&nbsp; <i class="icon-caret-down lb-trigger-mount"></i></a> 
+       <a class="lb-txt-none lb-txt lb-has-trigger-indicator" href="#" data-mbox-ignore="true" data-lb-popover-trigger="blog-editions" role="button" aria-expanded="false" aria-label="Select blog language" id="popover-blog-editions-trigger" aria-controls="blog-editions" aria-haspopup="true" data-trk-params="{&quot;trkOverrideWithQs&quot;:true}"> Editions&nbsp; <i class="icon-caret-down lb-trigger-mount"></i></a> 
+      </div> 
+     </div> 
+    </div> 
+   </div> 
+   <div class="lb-popover lb-popover-aui lb-popover-xlarge" data-lb-comp="popover" data-id="blog-category" id="blog-category" aria-modal="false" aria-labelledby="popover-blog-category-trigger" data-action="hover" data-position="top"> 
+    <a class="lb-popover-close" role="button" tabindex="0" aria-label="Close" title="Close"> <span class="lb-sr-only">Close</span> </a> 
+    <div class="lb-none-pad lb-none-v-margin lb-grid lb-row lb-row-max-large lb-snap"> 
+     <div class="lb-col lb-tiny-24 lb-mid-12"> 
+      <div class="lb-none-pad lb-none-v-margin lb-box"> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/architecture/"> Architecture</a> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/mt/" data-trk-params="{&quot;trkOverrideWithQs&quot;:true}"> AWS Cloud Operations &amp; Migrations</a> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/gametech/" data-trk-params="{&quot;trkOverrideWithQs&quot;:true}"> AWS for Games</a> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/aws-insights/"> AWS Insights</a> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/awsmarketplace/"> AWS Marketplace</a> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/aws/"> AWS News</a> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/apn/"> AWS Partner Network</a> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/smb/"> AWS Smart Business</a> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/big-data/"> Big Data</a> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/business-intelligence/"> Business Intelligence</a> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/business-productivity/"> Business Productivity</a> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/enterprise-strategy/" data-trk-params="{&quot;trkOverrideWithQs&quot;:true}"> Cloud Enterprise Strategy</a> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/aws-cloud-financial-management/"> Cloud Financial Management</a> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/compute/"> Compute</a> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/contact-center/"> Contact Center</a> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/containers/"> Containers</a> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/database/"> Database</a> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/desktop-and-application-streaming/"> Desktop &amp; Application Streaming</a> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/developer/" data-trk-params="{&quot;trkOverrideWithQs&quot;:true}"> Developer Tools</a> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/devops/"> DevOps</a> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/mobile/"> Front-End Web &amp; Mobile</a> 
+      </div> 
+     </div> 
+     <div class="lb-col lb-tiny-24 lb-mid-12"> 
+      <div class="lb-none-pad lb-none-v-margin lb-box"> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/hpc/"> HPC</a> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/industries/"> Industries</a> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/infrastructure-and-automation/"> Integration &amp; Automation</a> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/iot/"> Internet of Things</a> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/machine-learning/"> Machine Learning</a> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/media/"> Media</a> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/messaging-and-targeting/"> Messaging &amp; Targeting</a> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/modernizing-with-aws/"> Microsoft Workloads on AWS</a> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/dotnet/"> .NET on AWS</a> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/networking-and-content-delivery/"> Networking &amp; Content Delivery</a> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/opensource/"> Open Source</a> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/publicsector/"> Public Sector</a> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/quantum-computing/" data-trk-params="{&quot;trkOverrideWithQs&quot;:true}"> Quantum Computing</a> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/robotics/"> Robotics</a> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/awsforsap/"> SAP</a> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/security/" data-trk-params="{&quot;trkOverrideWithQs&quot;:true}"> Security</a> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/spatial/"> Spatial Computing</a> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/startups/"> Startups</a> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/storage/"> Storage</a> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/supply-chain/"> Supply Chain &amp; Logistics</a> 
+       <a class="lb-txt-none lb-txt" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/training-and-certification/"> Training &amp; Certification</a> 
+      </div> 
+     </div> 
+    </div> 
+   </div> 
+   <div class="lb-popover lb-popover-aui lb-popover-tiny" data-lb-comp="popover" data-id="blog-editions" id="blog-editions" aria-modal="false" aria-labelledby="popover-blog-editions-trigger" data-action="hover" data-position="top"> 
+    <a class="lb-popover-close" role="button" tabindex="0" aria-label="Close" title="Close"> <span class="lb-sr-only">Close</span> </a> 
+    <ul class="lb-txt-none lb-none-v-margin lb-ul lb-list-style-none lb-li-micro-v-margin lb-tiny-ul-block"> 
+     <li translate="no" lang="zh-CN"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/cn/blogs/china/">中国版</a></li> 
+     <li translate="no" lang="ja-JP"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/jp/blogs/news/">日本版</a></li> 
+     <li translate="no" lang="ko-KR"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/ko/blogs/korea/">한국 에디션</a></li> 
+     <li translate="no" lang="ko-KR"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/ko/blogs/tech/">기술 블로그</a></li> 
+     <li translate="no" lang="id-ID"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/id/blogs/indonesia/">Edisi Bahasa Indonesia</a></li> 
+     <li translate="no" lang="tr-TR"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/th/blogs/thailand/">AWS Thai Blog</a></li> 
+     <li translate="no" lang="fr-FR"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/fr/blogs/france/">Édition Française</a></li> 
+     <li translate="no" lang="de-DE"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/de/blogs/germany/">Deutsche Edition</a></li> 
+     <li translate="no" lang="pt-BR"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/pt/blogs/aws-brasil/">Edição em Português</a></li> 
+     <li translate="no" lang="es-ES"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/es/blogs/aws-spanish/">Edición en Español</a></li> 
+     <li translate="no" lang="ru-RU"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/ru/blogs/rus/">Версия на русском</a></li> 
+     <li translate="no" lang="tr-TR"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/tr/blogs/turkey/">Türkçe Sürüm</a></li> 
+    </ul> 
+   </div> 
+  </div> 
+  <div id="aws-page-content" class="aws-blog-has-related-posts lb-page-content lb-page-with-sticky-subnav blog-page" data-page-alert-target="true"> 
+   <div class="aws-blog-content lb-row lb-row-max-large lb-snap lb-gutter-mid"> 
+    <main class="lb-col lb-tiny-24 lb-mid-16" role="main" id="aws-page-content-main" tabindex="-1"> 
+     <h2 class="lb-h5 blog-title"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/architecture/">AWS Architecture Blog</a></h2> 
+     <article class="blog-post" vocab="https://schema.org/" typeof="TechArticle"> 
+      <meta property="inLanguage" content="en-US"> 
+      <meta property="image" content="https://d2908q01vomqb2.cloudfront.net/fc074d501302eb2b93e2554793fcaf50b3bf7291/2017/10/03/exponential-backoff-and-jitter-blog-figure-12.png"> 
+      <h1 class="lb-h2 blog-post-title" property="name headline">Exponential Backoff And Jitter</h1> 
+      <footer class="blog-post-meta" data-lb-comp="aws-blog:share-dialog">
+        by Marc Brooker | on 
+       <time property="datePublished" datetime="2015-03-04T10:48:56-08:00">04 MAR 2015</time> | in 
+       <span class="blog-post-categories"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/architecture/category/architecture/" title="View all posts in Architecture"><span property="articleSection">Architecture</span></a></span> | 
+       <a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/" property="url">Permalink</a> | 
+       <a href="#" role="button" data-share-dialog-toggle><span class="span icon-share"></span>&nbsp;Share</a> 
+       <div class="blog-share-dialog" data-share-dialog style="display: none;"> 
+        <ul> 
+         <li> <a class="lb-txt" href="https://web.archive.org/web/20231228221709/https://www.facebook.com/sharer/sharer.php?u=https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/" target="_blank" rel="noopener noreferrer" aria-label="Share on Facebook"><span class="icon-facebook-square"></span></a> </li> 
+         <li> <a class="lb-txt" href="https://web.archive.org/web/20231228221709/https://twitter.com/intent/tweet/?text=Exponential%20Backoff%20And%20Jitter&amp;via=awscloud&amp;url=https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/" target="_blank" rel="noopener noreferrer" aria-label="Share on Twitter"><span class="icon-twitter-square"></span></a> </li> 
+         <li> <a class="lb-txt" href="https://web.archive.org/web/20231228221709/https://www.linkedin.com/shareArticle?mini=true&amp;title=Exponential%20Backoff%20And%20Jitter&amp;source=Amazon%20Web%20Services&amp;url=https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/" target="_blank" rel="noopener noreferrer" aria-label="Share on LinkedIn"><span class="icon-linkedin-square"></span></a> </li> 
+         <li> <a class="lb-txt" href="https://web.archive.org/web/20231228221709/mailto:/?subject=Exponential%20Backoff%20And%20Jitter&amp;body=Exponential%20Backoff%20And%20Jitter%0A%0Ahttps://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/" target="_blank" rel="noopener noreferrer" aria-label="Share on Email"><span class="icon-envelope-square"></span></a> </li> 
+         <li class="blog-share-dialog-url"><input type="text" value="https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/" title="Link to Exponential Backoff And Jitter" readonly data-share-dialog-url></li> 
+        </ul> 
+       </div> 
+      </footer> 
+      <section class="blog-post-content lb-rtxt" property="articleBody"> 
+       <p><em>Update (May 2023):</em> After 8 years, this solution continues to serve as a pillar for how Amazon builds remote client libraries for resilient systems. Most AWS SDKs now support exponential backoff and jitter as part of their <a href="https://web.archive.org/web/20231228221709/https://docs.aws.amazon.com/sdkref/latest/guide/feature-retry-behavior.html">retry behavior</a> when using standard or adaptive modes. Consequently, this pattern can be leveraged without having to incorporate personal logic around AWS SDK requests made to AWS services. The list of AWS SDKs that support these features can be found in the <a href="https://web.archive.org/web/20231228221709/https://docs.aws.amazon.com/sdkref/latest/guide/feature-retry-behavior.html#feature-retry-behavior-sdk-compat">AWS SDK documentation</a>.</p> 
+       <p>You can also dive deeper into timeouts, retries, and backoff with jitter in our <a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/">Amazon Builders’ Library</a>.</p> 
+       <h1>Introducing OCC</h1> 
+       <p>Optimistic concurrency control (OCC) is a time-honored way for multiple writers to safely modify a single object without losing writes. OCC has three nice properties: it will always make progress as long as the underlying store is available, it’s easy to understand, and it’s easy to implement. DynamoDB’s conditional writes make OCC a natural fit for DynamoDB users, and it’s natively supported by the DynamoDBMapper client.</p> 
+       <p>While OCC is guaranteed to make progress, it can still perform quite poorly under high contention. The simplest of these contention cases is when a whole lot of clients start at the same time, and try to update the same database row. With one client guaranteed to succeed every round, the time to complete all the updates grows linearly with contention.</p> 
+       <p>For the graphs in this post, I used a small simulator to model the behavior of OCC on a network with delay (and variance in delay), against a remote database. In this simulation, the network introduces delay with a mean of 10ms and variance of 4ms. The first simulation shows how completion time grows linearly with contention. This linear growth is because one client succeeds every round, so it takes N rounds for all N clients to succeed.</p> 
+       <p><img class="aligncenter wp-image-101 size-full" src="https://web.archive.org/web/20231228221709im_/https://d2908q01vomqb2.cloudfront.net/fc074d501302eb2b93e2554793fcaf50b3bf7291/2017/10/03/exponential-backoff-and-jitter-blog-figure-1.png" alt="" width="600" height="400"></p> 
+       <p>Unfortunately, that’s not the whole picture. With N clients contending, the total amount of work done by the system increases with N2.</p> 
+       <p><img loading="lazy" class="aligncenter wp-image-100 size-full" src="https://web.archive.org/web/20231228221709im_/https://d2908q01vomqb2.cloudfront.net/fc074d501302eb2b93e2554793fcaf50b3bf7291/2017/10/03/exponential-backoff-and-jitter-blog-figure-2.png" alt="" width="600" height="400"></p> 
+       <h1>Adding Backoff</h1> 
+       <p>The problem here is that N clients compete in the first round, N-1 in the second round, and so on. Having every client compete in every round is wasteful. Slowing clients down may help, and the classic way to slow clients down is capped exponential backoff. Capped exponential backoff means that clients multiply their backoff by a constant after each attempt, up to some maximum value. In our case, after each unsuccessful attempt, clients sleep for:</p> 
+       <p><img loading="lazy" class="aligncenter wp-image-99 size-full" src="https://web.archive.org/web/20231228221709im_/https://d2908q01vomqb2.cloudfront.net/fc074d501302eb2b93e2554793fcaf50b3bf7291/2017/10/03/exponential-backoff-and-jitter-blog-figure-3.png" alt="" width="860" height="44"></p> 
+       <p>Running the simulation again shows that backoff helps a small amount, but doesn’t solve the problem. Client work has only been reduced slightly.</p> 
+       <p><img loading="lazy" class="aligncenter wp-image-98 size-full" src="https://web.archive.org/web/20231228221709im_/https://d2908q01vomqb2.cloudfront.net/fc074d501302eb2b93e2554793fcaf50b3bf7291/2017/10/03/exponential-backoff-and-jitter-blog-figure-4.png" alt="" width="600" height="400"></p> 
+       <p>The best way to see the problem is to look at the times these exponentially backed-off calls happen.</p> 
+       <p><img loading="lazy" class="aligncenter wp-image-97 size-full" src="https://web.archive.org/web/20231228221709im_/https://d2908q01vomqb2.cloudfront.net/fc074d501302eb2b93e2554793fcaf50b3bf7291/2017/10/03/exponential-backoff-and-jitter-blog-figure-5.png" alt="" width="600" height="400"></p> 
+       <p>It’s obvious that the exponential backoff is working, in that the calls are happening less and less frequently. The problem also stands out: there are still clusters of calls. Instead of reducing the number of clients competing in every round, we’ve just introduced times when no client is competing. Contention hasn’t been reduced much, although the natural variance in network delay has introduced some spreading.</p> 
+       <h1>Adding Jitter</h1> 
+       <p>The solution isn’t to remove backoff. It’s to add jitter. Initially, jitter may appear to be a counter-intuitive idea: trying to improve the performance of a system by adding randomness. The time series above makes a great case for jitter – we want to spread out the spikes to an approximately constant rate. Adding jitter is a small change to the sleep function:</p> 
+       <p><img loading="lazy" class="aligncenter wp-image-96 size-full" src="https://web.archive.org/web/20231228221709im_/https://d2908q01vomqb2.cloudfront.net/fc074d501302eb2b93e2554793fcaf50b3bf7291/2017/10/03/exponential-backoff-and-jitter-blog-figure-6.png" alt="" width="860" height="44"></p> 
+       <p><img loading="lazy" class="aligncenter wp-image-95 size-full" src="https://web.archive.org/web/20231228221709im_/https://d2908q01vomqb2.cloudfront.net/fc074d501302eb2b93e2554793fcaf50b3bf7291/2017/10/03/exponential-backoff-and-jitter-blog-figure-7.png" alt="" width="600" height="400"></p> 
+       <p>That time series looks a whole lot better. The gaps are gone, and beyond the initial spike, there’s an approximately constant rate of calls. It’s also had a great effect on the total number of calls.</p> 
+       <p><img loading="lazy" class="aligncenter wp-image-94 size-full" src="https://web.archive.org/web/20231228221709im_/https://d2908q01vomqb2.cloudfront.net/fc074d501302eb2b93e2554793fcaf50b3bf7291/2017/10/03/exponential-backoff-and-jitter-blog-figure-8.png" alt="" width="600" height="400"></p> 
+       <p>In the case with 100 contending clients, we’ve reduced our call count by more than half. We’ve also significantly improved the time to completion, when compared to un-jittered exponential backoff.</p> 
+       <p><img loading="lazy" class="aligncenter wp-image-93 size-full" src="https://web.archive.org/web/20231228221709im_/https://d2908q01vomqb2.cloudfront.net/fc074d501302eb2b93e2554793fcaf50b3bf7291/2017/10/03/exponential-backoff-and-jitter-blog-figure-9.png" alt="" width="600" height="400"></p> 
+       <p>There are a few ways to implement these timed backoff loops. Let’s call the algorithm above “Full Jitter”, and consider two alternatives. The first alternative is “Equal Jitter”, where we always keep some of the backoff and jitter by a smaller amount:</p> 
+       <p><img loading="lazy" class="aligncenter wp-image-92 size-full" src="https://web.archive.org/web/20231228221709im_/https://d2908q01vomqb2.cloudfront.net/fc074d501302eb2b93e2554793fcaf50b3bf7291/2017/10/03/exponential-backoff-and-jitter-blog-figure-10.png" alt="" width="860" height="66"></p> 
+       <p>The intuition behind this one is that it prevents very short sleeps, always keeping some of the slow down from the backoff. A second alternative is “Decorrelated Jitter”, which is similar to “Full Jitter”, but we also increase the maximum jitter based on the last random value.</p> 
+       <p><img loading="lazy" class="aligncenter wp-image-91 size-full" src="https://web.archive.org/web/20231228221709im_/https://d2908q01vomqb2.cloudfront.net/fc074d501302eb2b93e2554793fcaf50b3bf7291/2017/10/03/exponential-backoff-and-jitter-blog-figure-11.png" alt="" width="860" height="44"></p> 
+       <p>Which approach do you think is best?</p> 
+       <p>Looking at the amount of client work, the number of calls is approximately the same for “Full” and “Equal” jitter, and higher for “Decorrelated”. Both cut down work substantially relative to both the no-jitter approaches.</p> 
+       <p><img loading="lazy" class="aligncenter wp-image-90 size-full" src="https://web.archive.org/web/20231228221709im_/https://d2908q01vomqb2.cloudfront.net/fc074d501302eb2b93e2554793fcaf50b3bf7291/2017/10/03/exponential-backoff-and-jitter-blog-figure-12.png" alt="" width="600" height="400"></p> 
+       <p>The no-jitter exponential backoff approach is the clear loser. It not only takes more work, but also takes more time than the jittered approaches. In fact, it takes so much more time we have to leave it off the graph to get a good comparison of the other methods.</p> 
+       <p><img loading="lazy" class="aligncenter wp-image-89 size-full" src="https://web.archive.org/web/20231228221709im_/https://d2908q01vomqb2.cloudfront.net/fc074d501302eb2b93e2554793fcaf50b3bf7291/2017/10/03/exponential-backoff-and-jitter-blog-figure-13.png" alt="" width="600" height="400"></p> 
+       <p>Of the jittered approaches, “Equal Jitter” is the loser. It does slightly more work than “Full Jitter”, and takes much longer. The decision between “Decorrelated Jitter” and “Full Jitter” is less clear. The “Full Jitter” approach uses less work, but slightly more time. Both approaches, though, present a substantial decrease in client work and server load.</p> 
+       <p>It’s worth noting that none of these approaches fundamentally change the N2 nature of the work to be done, but do substantially reduce work at reasonable levels of contention. The return on implementation complexity of using jittered backoff is huge, and it should be considered a standard approach for remote clients.</p> 
+       <p>All of the graphs and numbers from this post were generated using a simple simulation of OCC behavior. You can get our simulator code on GitHub, in the aws<a href="https://web.archive.org/web/20231228221709/https://github.com/awslabs/aws-arch-backoff-simulator">-arch-backoff-simulator</a> project.</p> 
+       <p>&nbsp;</p> 
+       <p>&nbsp;</p> 
+       <!-- '"` --> 
+      </section> 
+      <footer> 
+       <div class="blog-tag-list">
+         TAGS: 
+        <span property="keywords"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/architecture/tag/scalability/" rel="tag">Scalability</a></span> 
+       </div> 
+       <div class="blog-author-box" property="author" typeof="Person"> 
+        <div class="blog-author-image"> 
+         <img alt="Marc Brooker" src="https://web.archive.org/web/20231228221709im_/https://d2908q01vomqb2.cloudfront.net/fc074d501302eb2b93e2554793fcaf50b3bf7291/2019/09/19/marc-brooker.png" width="125" property="image"> 
+        </div> 
+        <h3 class="lb-h4" property="name">Marc Brooker</h3> 
+        <p property="description">Marc Brooker is the VP Technology of Software Development at Amazon Web Services. Since 2008, he has worked at AWS on multiple services, including EC2, EBS and IoT. Today, he focuses on AWS Lambda, including work on scaling and virtualization. Marc really enjoys reading COEs and post-mortems. He holds a PhD in electrical engineering.</p> 
+       </div> 
+      </footer> 
+      <div class="js-mbox" data-mbox="en_blog_post_comments"></div> 
+     </article> 
+    </main> 
+    <div class="blog-sidebar lb-col lb-tiny-24 lb-mid-8"> 
+     <div class="awsm"> 
+      <div class="lb-box" style="padding-left:30px;"> 
+       <h3 id="Resources" class="lb-txt-none lb-h3 lb-title" style="margin-top:30px;"> Resources</h3> 
+       <div class="data-attr-wrapper lb-none-pad lb-none-v-margin lb-box" data-da-type="ha" data-da-channel="ha" data-da-language="en" data-da-placement="blog-sb-resources" data-da-campaign="acq_awsblogsb" data-da-content="architecture-resources" data-da-trk="blog_initial"> 
+        <ul class="lb-txt-none lb-none-v-margin lb-ul lb-list-style-none lb-li-none-v-margin lb-tiny-ul-block"> 
+         <li><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/architecture/">AWS Architecture Center</a></li> 
+         <li><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/architecture/well-architected?sc_ichannel=ha&amp;sc_icampaign=acq_awsblogsb&amp;sc_icontent=architecture-resources">AWS Well-Architected</a></li> 
+         <li><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/architecture/architecture-monthly/">AWS Architecture Monthly</a></li> 
+         <li><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/whitepapers?sc_ichannel=ha&amp;sc_icampaign=acq_awsblogsb&amp;sc_icontent=architecture-resources">AWS Whitepapers</a></li> 
+         <li><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/training?sc_ichannel=ha&amp;sc_icampaign=acq_awsblogsb&amp;sc_icontent=architecture-resources">AWS Training and Certification</a></li> 
+         <li><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/this-is-my-architecture?sc_ichannel=ha&amp;sc_icampaign=acq_awsblogsb&amp;sc_icontent=architecture-resources">This Is My Architecture</a></li> 
+        </ul> 
+       </div> 
+       <div class="lb-grid lb-row lb-row-max-large lb-snap"> 
+        <div class="lb-col lb-tiny-24 lb-mid-8"> 
+         <hr class="lb-divider"> 
+        </div> 
+        <div class="lb-col lb-tiny-24 lb-mid-8"> 
+        </div> 
+        <div class="lb-col lb-tiny-24 lb-mid-8"> 
+        </div> 
+       </div> 
+       <h3 id="Follow" class="lb-txt-none lb-h3 lb-title"> Follow</h3> 
+       <div class="data-attr-wrapper lb-none-pad lb-none-v-margin lb-box" data-da-type="ha" data-da-channel="ha" data-da-language="en" data-da-placement="blog-sb-social" data-da-campaign="acq_awsblogsb" data-da-content="architecture-social" data-da-trk="blog_initial"> 
+        <ul class="lb-txt-none lb-none-v-margin lb-ul lb-list-style-none lb-li-none-v-margin lb-tiny-ul-block"> 
+         <li><a href="https://web.archive.org/web/20231228221709/https://twitter.com/awscloud"><i class="icon-twitter-square"></i> &nbsp;Twitter</a></li> 
+         <li><a href="https://web.archive.org/web/20231228221709/https://www.facebook.com/amazonwebservices"><i class="icon-facebook-square"></i> &nbsp;Facebook</a></li> 
+         <li><a href="https://web.archive.org/web/20231228221709/https://www.linkedin.com/company/amazon-web-services/"><i class="icon-linkedin-square"></i> &nbsp;LinkedIn</a></li> 
+         <li><a href="https://web.archive.org/web/20231228221709/https://www.twitch.tv/aws"><i class="icon-twitch"></i> &nbsp;Twitch</a></li> 
+         <li><a href="https://web.archive.org/web/20231228221709/https://pages.awscloud.com/communication-preferences?sc_ichannel=ha&amp;sc_icampaign=acq_awsblogsb&amp;sc_icontent=architecture-social"><i class="icon-envelope-square"></i> &nbsp;Email Updates</a></li> 
+        </ul> 
+       </div> 
+      </div> 
+     </div> 
+     <div class="js-mbox" data-mbox="en_blog_post_sidebar"></div> 
+    </div> 
+   </div> 
+  </div> 
+  <div class="awsm"> 
+   <footer id="aws-page-footer" class="m-page-footer" role="contentinfo"> 
+    <div class="data-attr-wrapper lb-none-v-margin lb-xb-grid-wrap" style="background-color:#242F3E;" data-da-type="so" data-da-so-type="viewport" data-da-so-language="en" data-da-so-category="monitoring" data-da-so-name="footer" data-da-so-version="a"> 
+     <div class="lb-xb-grid lb-row-max-large lb-snap lb-tiny-xb-1 lb-small-xb-3 lb-large-xb-5"> 
+      <div class="lb-xbcol"> 
+       <div class="data-attr-wrapper lb-small-hide lb-btn" data-da-type="so" data-da-so-type="viewport" data-da-so-language="en" data-da-so-category="monitoring" data-da-so-name="footer_buttons" data-da-so-url="all" data-da-so-version="footer_signin-mobile-default"> 
+        <a class="lb-btn-p-primary" href="https://web.archive.org/web/20231228221709/https://console.aws.amazon.com/console/home?nc1=f_ct&amp;src=footer-signin-mobile" role="button"> <span> Sign In to the Console</span> </a> 
+       </div> 
+       <h3 class="lb-txt-none lb-txt-white lb-tiny-v-margin lb-h3 lb-title"> Learn About AWS</h3> 
+       <ul class="lb-txt-white lb-ul lb-list-style-none lb-li-micro-v-margin lb-tiny-ul-block" style="margin-bottom:0px;"> 
+        <li><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/what-is-aws/?nc1=f_cc" target="_blank" rel="noopener noreferrer">What Is AWS?</a></li> 
+        <li><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/what-is-cloud-computing/?nc1=f_cc" target="_blank" rel="noopener noreferrer">What Is Cloud Computing?</a></li> 
+        <li><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/diversity-inclusion/?nc1=f_cc" target="_blank" rel="noopener noreferrer">AWS Inclusion, Diversity &amp; Equity</a></li> 
+        <li><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/devops/what-is-devops/?nc1=f_cc" target="_blank" rel="noopener noreferrer">What Is DevOps?</a></li> 
+        <li><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/containers/?nc1=f_cc" target="_blank" rel="noopener noreferrer">What Is a Container?</a></li> 
+        <li><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/big-data/datalakes-and-analytics/what-is-a-data-lake/?nc1=f_cc" target="_blank" rel="noopener noreferrer">What Is a Data Lake?</a></li> 
+        <li><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/security/?nc1=f_cc" target="_blank" rel="noopener noreferrer">AWS Cloud Security</a></li> 
+        <li><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/new/?nc1=f_cc" target="_blank" rel="noopener noreferrer">What's New</a></li> 
+        <li><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/blogs/?nc1=f_cc" target="_blank" rel="noopener noreferrer">Blogs</a></li> 
+        <li><a href="https://web.archive.org/web/20231228221709/https://press.aboutamazon.com/press-releases/aws" target="_blank" rel="noopener noreferrer" title="Press Releases">Press Releases</a></li> 
+       </ul> 
+      </div> 
+      <div class="lb-xbcol"> 
+       <h3 class="lb-txt-none lb-txt-white lb-tiny-v-margin lb-h3 lb-title"> Resources for AWS</h3> 
+       <ul class="lb-txt-white lb-ul lb-list-style-none lb-li-micro-v-margin lb-tiny-ul-block" style="margin-bottom:0px;"> 
+        <li><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/getting-started/?nc1=f_cc" target="_blank" rel="noopener noreferrer">Getting Started</a></li> 
+        <li><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/training/?nc1=f_cc" target="_blank" rel="noopener noreferrer">Training and Certification</a></li> 
+        <li><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/solutions/?nc1=f_cc" target="_blank" rel="noopener noreferrer">AWS Solutions Library</a></li> 
+        <li><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/architecture/?nc1=f_cc" target="_blank" rel="noopener noreferrer">Architecture Center</a></li> 
+        <li><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/faqs/?nc1=f_dr" target="_blank" rel="noopener noreferrer">Product and Technical FAQs</a></li> 
+        <li><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/resources/analyst-reports/?nc1=f_cc" target="_blank" rel="noopener noreferrer">Analyst Reports</a></li> 
+        <li><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/partners/work-with-partners/?nc1=f_dr" target="_blank" rel="noopener noreferrer">AWS Partners</a></li> 
+       </ul> 
+      </div> 
+      <div class="lb-xbcol"> 
+       <h3 class="lb-txt-none lb-txt-white lb-tiny-v-margin lb-h3 lb-title"> Developers on AWS</h3> 
+       <ul class="lb-txt-white lb-ul lb-list-style-none lb-li-micro-v-margin lb-tiny-ul-block" style="margin-bottom:0px;"> 
+        <li><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/developer/?nc1=f_dr" target="_blank" rel="noopener noreferrer">Developer Center</a></li> 
+        <li><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/developer/tools/?nc1=f_dr" target="_blank" rel="noopener noreferrer">SDKs &amp; Tools</a></li> 
+        <li><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/developer/language/net/?nc1=f_dr" target="_blank" rel="noopener noreferrer">.NET on AWS</a></li> 
+        <li><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/developer/language/python/?nc1=f_dr" target="_blank" rel="noopener noreferrer">Python on AWS</a></li> 
+        <li><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/developer/language/java/?nc1=f_dr" target="_blank" rel="noopener noreferrer">Java on AWS</a></li> 
+        <li><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/developer/language/php/?nc1=f_cc" target="_blank" rel="noopener noreferrer">PHP on AWS</a></li> 
+        <li><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/developer/language/javascript/?nc1=f_dr" target="_blank" rel="noopener noreferrer">JavaScript on AWS</a></li> 
+       </ul> 
+      </div> 
+      <div class="lb-xbcol"> 
+       <h3 class="lb-txt-none lb-txt-white lb-tiny-v-margin lb-h3 lb-title"> Help</h3> 
+       <ul class="lb-txt-white lb-ul lb-list-style-none lb-li-micro-v-margin lb-tiny-ul-block" style="margin-bottom:0px;"> 
+        <li><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/contact-us/?nc1=f_m" target="_blank" rel="noopener noreferrer">Contact Us</a></li> 
+        <li><a href="https://web.archive.org/web/20231228221709/https://iq.aws.amazon.com/?utm=mkt.foot/?nc1=f_m" target="_blank" rel="noopener noreferrer">Get Expert Help</a></li> 
+        <li><a href="https://web.archive.org/web/20231228221709/https://console.aws.amazon.com/support/home/?nc1=f_dr" target="_blank" rel="noopener noreferrer">File a Support Ticket</a></li> 
+        <li><a href="https://web.archive.org/web/20231228221709/https://repost.aws/?nc1=f_dr" target="_blank" rel="noopener noreferrer">AWS re:Post</a></li> 
+        <li><a href="https://web.archive.org/web/20231228221709/https://repost.aws/knowledge-center/?nc1=f_dr" target="_blank" rel="noopener noreferrer">Knowledge Center</a></li> 
+        <li><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/premiumsupport/?nc1=f_dr" target="_blank" rel="noopener noreferrer">AWS Support Overview</a></li> 
+        <li><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/legal/?nc1=f_cc" target="_blank" rel="noopener noreferrer">Legal</a></li> 
+        <li><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/careers/">AWS Careers</a></li> 
+       </ul> 
+       <div class="lb-mbox js-mbox" data-lb-comp="mbox" data-lb-comp-ignore="true" data-mbox="en_footer-v3_addl-help"> 
+       </div> 
+      </div> 
+      <div class="lb-xbcol"> 
+       <div class="lb-mbox js-mbox" data-lb-comp="mbox" data-lb-comp-ignore="true" data-mbox="en_footer-v3_cta"> 
+        <div class="data-attr-wrapper lb-tiny-hide lb-small-show lb-btn" data-da-type="so" data-da-so-type="viewport" data-da-so-language="en" data-da-so-category="monitoring" data-da-so-name="footer_buttons" data-da-so-url="all" data-da-so-version="footer_signup-default"> 
+         <a class="lb-btn-p-primary" href="https://web.archive.org/web/20231228221709/https://portal.aws.amazon.com/gp/aws/developer/registration/index.html?nc1=f_ct&amp;src=default" role="button"> <span> Create an AWS Account</span> </a> 
+        </div> 
+       </div> 
+       <div class="lb-xb-grid-wrap" style="padding-left:0px; margin-top:20px; margin-bottom:0px;"> 
+        <div class="lb-xb-grid lb-row-max-large lb-xb-equal-height lb-snap lb-gutter-collapse lb-vgutter-collapse lb-tiny-xb-4"> 
+         <div class="lb-xbcol"> 
+          <a class="lb-txt-none lb-txt-white lb-none-pad lb-txt" style="padding-left:0px; padding-right:5px;" href="https://web.archive.org/web/20231228221709/https://twitter.com/awscloud" target="_blank" rel="noopener noreferrer" title="Twitter"> <i class="icon-twitter"></i></a> 
+         </div> 
+         <div class="lb-xbcol"> 
+          <a class="lb-txt-none lb-txt-white lb-none-pad lb-none-v-margin lb-txt" style="padding-right:5px;" href="https://web.archive.org/web/20231228221709/https://www.facebook.com/amazonwebservices" target="_blank" rel="noopener noreferrer" title="Facebook"> <i class="icon-facebook"></i></a> 
+         </div> 
+         <div class="lb-xbcol"> 
+          <a class="lb-txt-none lb-txt-white lb-none-pad lb-txt" style="padding-right:5px;" href="https://web.archive.org/web/20231228221709/https://www.linkedin.com/company/amazon-web-services/" target="_blank" rel="noopener noreferrer" title="Linkedin"> <i class="icon-linkedin"></i></a> 
+         </div> 
+         <div class="lb-xbcol"> 
+          <a class="lb-txt-none lb-txt-white lb-none-pad lb-txt" style="padding-right:5px;" href="https://web.archive.org/web/20231228221709/https://www.instagram.com/amazonwebservices/" target="_blank" rel="noopener noreferrer" title="Instagram"> <i class="icon-instagram"></i></a> 
+         </div> 
+        </div> 
+       </div> 
+       <div class="lb-xb-grid-wrap" style="padding-left:0px; margin-top:10px;"> 
+        <div class="lb-xb-grid lb-row-max-large lb-xb-equal-height lb-snap lb-gutter-collapse lb-vgutter-collapse lb-tiny-xb-4"> 
+         <div class="lb-xbcol"> 
+          <a class="lb-txt-none lb-txt-white lb-none-pad lb-txt" style="padding-right:5px;" href="https://web.archive.org/web/20231228221709/https://www.twitch.tv/aws" target="_blank" rel="noopener noreferrer" title="Twitch"> <i class="icon-twitch"></i></a> 
+         </div> 
+         <div class="lb-xbcol"> 
+          <a class="lb-txt-none lb-txt-white lb-none-pad lb-txt" style="padding-right:5px;" href="https://web.archive.org/web/20231228221709/https://www.youtube.com/user/AmazonWebServices/Cloud/" target="_blank" rel="noopener noreferrer" title="YouTube"> <i class="icon-youtube"></i></a> 
+         </div> 
+         <div class="lb-xbcol"> 
+          <a class="lb-txt-none lb-txt-white lb-none-pad lb-txt" style="padding-right:5px;" href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/podcasts/" target="_blank" rel="noopener noreferrer" title="Podcast"> <i class="icon-podcast"></i></a> 
+         </div> 
+         <div class="lb-xbcol"> 
+          <a class="lb-txt-none lb-txt-white lb-none-pad lb-txt" style="padding-right:5px;" href="https://web.archive.org/web/20231228221709/https://pages.awscloud.com/communication-preferences?trk=homepage" target="_blank" rel="noopener noreferrer" title="Email"> <i class="icon-envelope-o"></i></a> 
+         </div> 
+        </div> 
+       </div> 
+       <div class="lb-txt-normal lb-txt-white lb-txt-14 lb-rtxt" style="color:#eaeded; margin-top:0px;"> 
+        <div>
+          Amazon is an Equal Opportunity Employer: 
+         <i> Minority / Women / Disability / Veteran / Gender Identity / Sexual Orientation / Age.</i> 
+        </div> 
+       </div> 
+      </div> 
+     </div> 
+    </div> 
+    <div class="lb-none-pad lb-none-v-margin lb-xb-grid-wrap" style="background-color:#242F3E;"> 
+     <div class="lb-xb-grid lb-row-max-large lb-snap lb-tiny-xb-1"> 
+      <div class="lb-xbcol"> 
+       <ul class="lb-txt-white lb-tiny-iblock lb-none-v-margin lb-ul lb-list-style-none lb-li-micro-v-margin lb-tiny-ul-iblock"> 
+        <li class="lb-txt-bold">Language</li> 
+        <li data-language="ar" lang="ar-SA" translate="no"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/ar/?nc1=h_ls">عربي</a></li> 
+        <li data-language="id" lang="id-ID" translate="no"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/id/?nc1=h_ls">Bahasa Indonesia</a></li> 
+        <li data-language="de" lang="de-DE" translate="no"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/de/?nc1=h_ls">Deutsch</a></li> 
+        <li data-language="en" lang="en-US" translate="no"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/?nc1=h_ls">English</a></li> 
+        <li data-language="es" lang="es-ES" translate="no"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/es/?nc1=h_ls">Español</a></li> 
+        <li data-language="fr" lang="fr-FR" translate="no"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/fr/?nc1=h_ls">Français</a></li> 
+        <li data-language="it" lang="it-IT" translate="no"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/it/?nc1=h_ls">Italiano</a></li> 
+        <li data-language="pt" lang="pt-BR" translate="no"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/pt/?nc1=h_ls">Português</a></li> 
+        <li data-language="vi" lang="vi-VN" translate="no"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/vi/?nc1=f_ls">Tiếng Việt</a></li> 
+        <li data-language="tr" lang="tr-TR" translate="no"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/tr/?nc1=h_ls">Türkçe</a></li> 
+        <li data-language="ru" lang="ru-RU" translate="no"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/ru/?nc1=h_ls">Ρусский</a></li> 
+        <li data-language="th" lang="th-TH" translate="no"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/th/?nc1=f_ls">ไทย</a></li> 
+        <li data-language="jp" lang="ja-JP" translate="no"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/jp/?nc1=h_ls">日本語</a></li> 
+        <li data-language="ko" lang="ko-KR" translate="no"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/ko/?nc1=h_ls">한국어</a></li> 
+        <li data-language="cn" lang="zh-CN" translate="no"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/cn/?nc1=h_ls">中文 (简体)</a></li> 
+        <li data-language="tw" lang="zh-TW" translate="no"><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/tw/?nc1=h_ls">中文 (繁體)</a></li> 
+       </ul> 
+      </div> 
+     </div> 
+    </div> 
+    <div class="lb-none-pad lb-none-v-margin lb-xb-grid-wrap" style="background-color:#EAEDED; padding-top:5px;"> 
+     <div class="lb-xb-grid lb-row-max-large lb-snap lb-tiny-xb-1"> 
+      <div class="lb-xbcol"> 
+       <ul class="lb-txt-squid lb-none-v-margin lb-ul lb-list-style-none lb-li-none-v-margin lb-tiny-ul-iblock"> 
+        <li><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/privacy/?nc1=f_pr">Privacy</a></li> 
+        <li>|</li> 
+        <li><a href="https://web.archive.org/web/20231228221709/https://aws.amazon.com/terms/?nc1=f_pr">Site Terms</a></li> 
+        <li>|</li> 
+        <li data-cookie-consent-modal="1"><a href="#"> Cookie Preferences </a></li> 
+        <li>|</li> 
+        <li>© 2023, Amazon Web Services, Inc. or its affiliates. All rights reserved.</li> 
+       </ul> 
+      </div> 
+     </div> 
+    </div> 
+   </footer> 
+  </div> 
+  <script data-disqus-cookies-disabled-dialog type="text/html">
+  <div class="lb-alert lb-alert-info">
+    <h4 class="lb-title">Feature not available</h4>
+
+    <p>Visit <a href="#" data-shortbread-modal="true">cookie preferences</a> and allow all cookies to enable this feature.</p>
+  </div>
+</script> 
+  <div id="aws-page-end"></div> 
+  <div id="lb-page-end"></div> 
+  <script src="https://web.archive.org/web/20231228221709js_/https://a0.awsstatic.com/da/js/1.0.50/aws-da.js" async></script> 
+  <script src="https://web.archive.org/web/20231228221709js_/https://a0.awsstatic.com/aws-blog/1.0.68/js/vendor/prism.js" data-default-language="markup"></script>  
+ </body>
+</html><!--
+     FILE ARCHIVED ON 22:17:09 Dec 28, 2023 AND RETRIEVED FROM THE
+     INTERNET ARCHIVE ON 14:06:35 Sep 05, 2026.
+     JAVASCRIPT APPENDED BY WAYBACK MACHINE, COPYRIGHT INTERNET ARCHIVE.
+
+     ALL OTHER CONTENT MAY ALSO BE PROTECTED BY COPYRIGHT (17 U.S.C.
+     SECTION 108(a)(3)).
+-->
+<!--
+playback timings (ms):
+  captures_list: 0.54
+  exclusion.robots: 0.072
+  exclusion.robots.policy: 0.061
+  esindex: 0.009
+  cdx.remote: 20.084
+  LoadShardBlock: 245.447 (3)
+  PetaboxLoader3.resolve: 1734.614 (5)
+  PetaboxLoader3.datanode: 135.926 (5)
+  load_resource: 1781.834 (2)
+-->

@@ -1,0 +1,21 @@
+{
+  "name": "ctf",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react-swc": "^4.3.3",
+    "typescript": "~6.0.2",
+    "vite": "^8.2.2"
+  },
+  "dependencies": {
+    "@types/three": "^0.185.4",
+    "react-router-dom": "^7.18.3",
+    "three": "^0.185.1"
+  }
+}
