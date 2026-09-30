@@ -11,9 +11,11 @@ const HEX_POOL = [
 
 const SECTOR_MAP: Record<string, string> = {
   '/hub': 'COMMAND',
-  '/universe/webverse': 'WEBVERSE',
-  '/universe/osintverse': 'OSINTVERSE',
-  '/universe/darknet': 'DARKNET',
+  '/universe/webverse': 'SECTOR 01',
+  '/universe/osintverse': 'SECTOR 02',
+  '/universe/darknet': 'SECTOR 03',
+  '/scoreboard': 'LEADERBOARD',
+  '/admin': 'ADMIN CONSOLE',
   '/final-boss': 'DOOM CORE',
 }
 
@@ -49,15 +51,9 @@ export default function BattleworldOS() {
   const [glitchCoord, setGlitchCoord] = useState(false)
   const intervalRef = useRef<number | null>(null)
 
-  // Don't render on landing page or if no participant
-  if (!state.participant || location.pathname === '/') return null
-
-  const stoneCount = state.stones.length
-  const sector = getSectorLabel(location.pathname)
-  const doomProtocol = stoneCount === 6 ? 'ARMED' : 'STANDBY'
-  const protocolColor = stoneCount === 6 ? 'var(--emerald)' : 'var(--text-dim)'
-
   useEffect(() => {
+    if (location.pathname === '/') return
+
     // Update clock every second
     const clockId = window.setInterval(() => setTime(getTimeString()), 1000)
 
@@ -75,7 +71,15 @@ export default function BattleworldOS() {
       window.clearInterval(clockId)
       window.clearInterval(coordId)
     }
-  }, [])
+  }, [location.pathname])
+
+  // Don't render on landing page
+  if (location.pathname === '/') return null
+
+  const stoneCount = state.stones.length
+  const sector = getSectorLabel(location.pathname)
+  const doomProtocol = stoneCount === 6 ? 'ARMED' : 'STANDBY'
+  const protocolColor = stoneCount === 6 ? 'var(--emerald)' : 'var(--text-dim)'
 
   const coord = glitchCoord ? 'DOOM//WATCHES' : HEX_POOL[coordIdx]
 
@@ -102,7 +106,7 @@ export default function BattleworldOS() {
 
         {/* Bottom-left: Operative info */}
         <div className="bw-os__bl">
-          <span className="bw-os__dim">OPERATIVE: <span className="bw-os__active">{state.participant.name.toUpperCase()}</span></span>
+          <span className="bw-os__dim">OPERATIVE: <span className="bw-os__active">{(state.participant?.name || 'OPERATIVE').toUpperCase()}</span></span>
           <span className="bw-os__dim">CLEARANCE: {getClearance(stoneCount)}</span>
           <span className="bw-os__dim" style={{ color: glitchCoord ? 'var(--danger)' : undefined }}>
             COORD: {coord}

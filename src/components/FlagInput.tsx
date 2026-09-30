@@ -1,48 +1,70 @@
 import { useState, type FormEvent, type CSSProperties } from 'react'
+import { submitFlag } from '../services/ctfd'
 
 interface Props {
-  flag: string
+  ctfdId: number
   onCorrect: () => void
   onWrong: () => void
   color?: string
   glow?: string
 }
 
-export default function FlagInput({ flag, onCorrect, onWrong, color, glow }: Props) {
+export default function FlagInput({ ctfdId, onCorrect, onWrong, color, glow }: Props) {
   const [input, setInput] = useState('')
   const [status, setStatus] = useState<'idle' | 'checking' | 'success' | 'error'>('idle')
+  const [statusMessage, setStatusMessage] = useState('AWAITING INPUT')
   const [successPhase, setSuccessPhase] = useState<'match' | 'granted'>('match')
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    if (!input.trim() || status === 'checking' || status === 'success') return
-    setStatus('checking')
+    const trimmed = input.trim()
+    if (!trimmed || status === 'checking' || status === 'success') return
 
-    setTimeout(() => {
-      if (input.trim().toUpperCase() === flag.toUpperCase()) {
+    setStatus('checking')
+    setStatusMessage('TRANSMITTING TO DOOMSDAY AUTHORITY...')
+
+    try {
+      const result = await submitFlag(ctfdId, trimmed)
+
+      if (result.status === 'correct' || result.status === 'already_solved') {
         setStatus('success')
+        setStatusMessage(result.status === 'already_solved' ? 'ALREADY SOLVED' : 'SIGNATURE MATCH')
         setSuccessPhase('match')
         setTimeout(() => {
           setSuccessPhase('granted')
-          setTimeout(onCorrect, 300)
-        }, 300)
+          setStatusMessage('ACCESS GRANTED')
+          setTimeout(onCorrect, 400)
+        }, 400)
+      } else if (result.status === 'blocked') {
+        setStatus('error')
+        setStatusMessage(result.message || 'TEAM SIZE REQUIREMENT NOT MET (MIN 2 MEMBERS)')
+        onWrong()
       } else {
         setStatus('error')
+        setStatusMessage(result.message ? result.message.toUpperCase() : 'SIGNATURE REJECTED')
         onWrong()
       }
-    }, 300)
+    } catch {
+      setStatus('error')
+      setStatusMessage('TRANSMISSION TIMEOUT')
+      onWrong()
+    }
   }
 
   return (
     <>
       <style>{`
-        .flag-input-wrap { position: relative; width: 100%; max-width: 600px; }
+        .flag-input-wrap { position: relative; width: 100%; max-width: 650px; }
         .flag-status { 
           display: inline-flex; align-items: center; gap: 8px;
           font-family: var(--mono-font, "Space Mono", monospace); font-size: 0.75rem; letter-spacing: 0.1em;
           padding: 6px 12px; border-radius: 4px; margin-bottom: 0.75rem;
           text-transform: uppercase;
           transition: all 0.3s ease;
+          max-width: 100%;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
         .flag-status--idle { color: var(--text-muted, #888); border: 1px solid var(--border, #333); background: var(--s1, #111); }
         .flag-status--checking { color: var(--signal, #f0b93d); border: 1px solid rgba(240,185,61,0.3); background: rgba(240,185,61,0.05); }
@@ -52,6 +74,7 @@ export default function FlagInput({ flag, onCorrect, onWrong, color, glow }: Pro
         .flag-status__dot {
           width: 8px; height: 8px; border-radius: 50%;
           background: currentColor;
+          flex-shrink: 0;
         }
         
         .flag-status--idle .flag-status__dot { animation: blink 1.5s ease-in-out infinite; }
@@ -159,17 +182,6 @@ export default function FlagInput({ flag, onCorrect, onWrong, color, glow }: Pro
           0%, 100% { opacity: 1; }
           50% { opacity: 0.3; }
         }
-        
-        @media (prefers-reduced-motion: reduce) {
-          .flag-input--checking::after,
-          .flag-input--error,
-          .flag-status--idle .flag-status__dot,
-          .flag-status--checking .flag-status__dot,
-          .flag-input--success .flag-input__field,
-          .flag-input--success .flag-input__btn {
-            animation: none !important;
-          }
-        }
       `}</style>
 
       <div
@@ -179,27 +191,30 @@ export default function FlagInput({ flag, onCorrect, onWrong, color, glow }: Pro
           '--ch-glow': glow || 'var(--emerald-glow, rgba(43,224,102,0.5))',
         } as CSSProperties}
       >
-        <div className={`flag-status flag-status--${status}`}>
+        <div className={`flag-status flag-status--${status}`} title={statusMessage}>
           <span className="flag-status__dot" />
-          {status === 'idle' && 'AWAITING INPUT'}
-          {status === 'checking' && 'VERIFYING SIGNATURE...'}
-          {status === 'success' && successPhase === 'match' && 'SIGNATURE MATCH'}
-          {status === 'success' && successPhase === 'granted' && 'ACCESS GRANTED'}
-          {status === 'error' && 'SIGNATURE REJECTED'}
+          {status === 'idle' && 'AWAITING INPUT // DOOM{...}'}
+          {status === 'checking' && statusMessage}
+          {status === 'success' && (successPhase === 'match' ? 'SIGNATURE MATCH' : 'ACCESS GRANTED')}
+          {status === 'error' && statusMessage}
         </div>
 
         <form 
           onSubmit={handleSubmit} 
           className={`flag-input flag-input--${status}`}
-          data-sfx={status === 'success' ? 'correct' : status === 'error' ? 'wrong' : undefined}
         >
           <input
             type="text"
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => {
+              setInput(e.target.value)
+              if (status === 'error') setStatus('idle')
+            }}
             placeholder="DOOM{...}"
             className="flag-input__field"
             disabled={status === 'checking' || status === 'success'}
+            autoComplete="off"
+            spellCheck="false"
           />
           <button
             type="submit"

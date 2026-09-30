@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as THREE from 'three';
 import { useGame } from '../contexts/GameContext';
+import AuthModal from '../components/AuthModal';
 
 export default function Home() {
   const mountRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  const { startGame } = useGame();
+  const { state, startGame, refreshFromCtfd } = useGame();
   const [countdown, setCountdown] = useState('T-00:00:00:00');
   const [isArmed, setIsArmed] = useState(false);
   const animRef = useRef<{ t: number; frameId: number | null }>({ t: 0, frameId: null });
@@ -148,7 +149,24 @@ export default function Home() {
           if (container && renderer.domElement && container.contains(renderer.domElement)) {
             container.removeChild(renderer.domElement);
           }
-          renderer.forceContextLoss();
+          // Cleanly dispose Three.js scene without destroying global GPU WebGL context
+          scene.traverse((obj) => {
+            if (obj instanceof THREE.Mesh) {
+              obj.geometry?.dispose();
+              if (Array.isArray(obj.material)) {
+                obj.material.forEach((m) => m.dispose());
+              } else if (obj.material) {
+                obj.material.dispose();
+              }
+            } else if (obj instanceof THREE.Points) {
+              obj.geometry?.dispose();
+              if (Array.isArray(obj.material)) {
+                obj.material.forEach((m) => m.dispose());
+              } else if (obj.material) {
+                obj.material.dispose();
+              }
+            }
+          });
           renderer.dispose();
         } catch (e) {
           console.error('WebGL Cleanup Error:', e);
@@ -179,12 +197,25 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+
   const handleEnter = () => {
     setIsArmed(true);
-    startGame('Operative', 'operative@void.ops');
+    try {
+      const user = state.ctfdUser;
+      if (user) {
+        startGame(user.name, user.email);
+      } else {
+        startGame('Operative', 'operative@hexhunt.local');
+      }
+    } catch {
+      startGame('Operative', 'operative@hexhunt.local');
+    }
+    // Background refresh without stalling navigation
+    refreshFromCtfd().catch(() => {});
     setTimeout(() => {
       navigate('/hub');
-    }, 1500);
+    }, 250);
   };
 
   return (
@@ -301,14 +332,31 @@ export default function Home() {
         <div className="timer-label">
           {isArmed ? 'Transmission acknowledged // stand by' : 'All systems are waiting for your signal'}
         </div>
-        <button
-          className={`btn ${isArmed ? 'armed' : ''}`}
-          type="button"
-          onClick={handleEnter}
-        >
-          {isArmed ? 'Signal received' : 'Enter the void'}
-        </button>
+        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center', marginTop: '1rem' }}>
+          <button
+            className={`btn ${isArmed ? 'armed' : ''}`}
+            type="button"
+            onClick={handleEnter}
+          >
+            {isArmed ? 'Signal received' : 'Enter the void'}
+          </button>
+          <button
+            className="btn"
+            type="button"
+            style={{
+              background: 'rgba(240, 185, 61, 0.12)',
+              borderColor: 'var(--signal, #f0b93d)',
+              color: 'var(--signal, #f0b93d)',
+              boxShadow: '0 0 15px rgba(240, 185, 61, 0.25)',
+            }}
+            onClick={() => setIsAuthOpen(true)}
+          >
+            🔑 Operative Login
+          </button>
+        </div>
       </div>
+
+      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
     </div>
   );
 }

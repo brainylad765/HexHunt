@@ -19,13 +19,12 @@ export default function PageTransition({ children, className = '' }: Props) {
           position: relative;
           width: 100%;
           min-height: 100vh;
-          overflow: hidden;
+          overflow-x: hidden;
         }
         
         .page-transition__content {
-          animation: pageFadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-          opacity: 0;
-          transform: translateY(20px);
+          animation: pageFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          opacity: 1;
         }
         
         .page-transition__scanline {
@@ -39,13 +38,13 @@ export default function PageTransition({ children, className = '' }: Props) {
           opacity: 0;
           z-index: 9999;
           pointer-events: none;
-          animation: scanline 1.5s ease-in-out forwards;
+          animation: scanline 1.2s ease-in-out forwards;
         }
         
         @keyframes pageFadeIn {
           0% {
             opacity: 0;
-            transform: translateY(20px);
+            transform: translateY(12px);
           }
           100% {
             opacity: 1;

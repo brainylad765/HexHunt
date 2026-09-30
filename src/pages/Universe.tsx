@@ -142,7 +142,7 @@ function ChallengeNode({
         {/* Node content */}
         <div className="ch-node__body">
           <div className="ch-node__header">
-            <span className="ch-node__id">{ch.id.toUpperCase()}</span>
+            <span className="ch-node__id">[{ch.code || ch.id.toUpperCase()}]</span>
             <span className="ch-node__pts">{ch.points} PTS</span>
           </div>
           <h3 className="ch-node__title">{ch.title}</h3>
@@ -178,25 +178,25 @@ const UNIVERSE_META: Record<UniverseType, {
   sectorNum: string; stone: string; threat: string; integrity: string
 }> = {
   webverse: {
-    name: 'WEBVERSE', icon: '🌐', color: 'var(--wv-primary)', glow: 'var(--wv-glow)', bg: 'var(--wv-bg)',
-    desc: 'Navigate broken portals. Decode the matrix. Break through.',
-    tagline: 'The web is fractured. The code is broken. The reality is corrupted.',
-    challengeIds: ['wv-01', 'wv-02', 'wv-03'], Hero: WebverseHero,
-    bgVariant: 'webverse', sectorNum: '01', stone: 'SPACE / MIND / REALITY', threat: 'MODERATE', integrity: '81',
+    name: 'SECTOR 01 // INITIATION', icon: '🌐', color: 'var(--wv-primary)', glow: 'var(--wv-glow)', bg: 'var(--wv-bg)',
+    desc: 'Tier 1 foundational operations across Cryptography, Forensics, OSINT, and Misc.',
+    tagline: 'Initiate tactical reconnaissance. Establish the first dimensional anchor.',
+    challengeIds: ['wv-01', 'wv-02', 'wv-03', 'wv-04'], Hero: WebverseHero,
+    bgVariant: 'webverse', sectorNum: '01', stone: 'SPACE / MIND / REALITY / POWER', threat: 'EASY TIER', integrity: '81',
   },
   osintverse: {
-    name: 'OSINTVERSE', icon: '🔍', color: 'var(--os-primary)', glow: 'var(--os-glow)', bg: 'var(--os-bg)',
-    desc: 'Trace the breadcrumbs. Every signal leaves a trace.',
-    tagline: 'Intelligence was never meant to be found. But you found it.',
-    challengeIds: ['os-01', 'os-02', 'os-03'], Hero: OsintverseHero,
-    bgVariant: 'osintverse', sectorNum: '02', stone: 'POWER / TIME / SOUL', threat: 'HIGH', integrity: '64',
+    name: 'SECTOR 02 // BREACH', icon: '🔍', color: 'var(--os-primary)', glow: 'var(--os-glow)', bg: 'var(--os-bg)',
+    desc: 'Tier 2 intermediate operations: DNS packet forensics, quarantine crypto, reverse engineering, web APIs.',
+    tagline: 'Deep telemetry exfiltration and reverse execution. The perimeter is breached.',
+    challengeIds: ['os-01', 'os-02', 'os-03', 'os-04', 'os-05'], Hero: OsintverseHero,
+    bgVariant: 'osintverse', sectorNum: '02', stone: 'TIME / SOUL / SPACE / MIND / REALITY', threat: 'MEDIUM TIER', integrity: '64',
   },
   darknet: {
-    name: 'DARKNET', icon: '🕸️', color: 'var(--dn-primary)', glow: 'var(--dn-glow)', bg: 'var(--dn-bg)',
-    desc: 'The darkest corner of the multiverse. Dig deep.',
-    tagline: 'The multiverse bleeds. Forensics, crypto, and exploitation ahead.',
-    challengeIds: ['dn-01', 'dn-02', 'dn-03', 'dn-04', 'dn-05', 'dn-06'], Hero: DarknetHero,
-    bgVariant: 'darknet', sectorNum: '03', stone: 'ALL REMAINING', threat: 'CRITICAL', integrity: '37',
+    name: 'SECTOR 03 // DOOMSDAY', icon: '🕸️', color: 'var(--dn-primary)', glow: 'var(--dn-glow)', bg: 'var(--dn-bg)',
+    desc: 'Tier 3 advanced operations: Fault analysis crypto, stripped binaries, and hardened web protocols.',
+    tagline: 'The core mainframe. Advanced exploitation and high-tier defensive validation.',
+    challengeIds: ['dn-01', 'dn-02', 'dn-03'], Hero: DarknetHero,
+    bgVariant: 'darknet', sectorNum: '03', stone: 'POWER / TIME / SOUL', threat: 'HARD TIER', integrity: '37',
   },
 }
 

@@ -3,31 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useGame } from '../contexts/GameContext'
 import FlagInput from '../components/FlagInput'
 import HintsPanel from '../components/HintsPanel'
-import DecoderTool from '../components/DecoderTool'
-import CluePanel from '../components/CluePanel'
-import MetadataPanel from '../components/MetadataPanel'
-import HexViewer from '../components/HexViewer'
 import NarrativePanel from '../components/NarrativePanel'
 import GlitchOverlay from '../components/GlitchOverlay'
 import PageTransition from '../components/PageTransition'
 import BattleworldBg from '../components/BattleworldBg'
 import CommandButton from '../components/CommandButton'
-
-// Mock pixel data per challenge
-const PIXEL_DATA: Record<string, { pos: string; rgb: [number, number, number]; note?: string }[]> = {
-  'dn-01': [
-    { pos: '12,34',  rgb: [255, 0, 0],   note: 'anomalous' },
-    { pos: '23,45',  rgb: [0, 255, 0],   note: 'anomalous' },
-    { pos: '67,89',  rgb: [0, 0, 255],   note: 'anomalous' },
-    { pos: '88,99',  rgb: [255, 255, 0], note: 'anomalous' },
-  ],
-  'os-03': [
-    { pos: '0,0',    rgb: [0x44, 0x4F, 0x4F] },
-    { pos: '0,1',    rgb: [0x4D, 0x7B, 0x70] },
-    { pos: '1,0',    rgb: [0x34, 0x70, 0x65] },
-    { pos: '1,1',    rgb: [0x72, 0x5F, 0x74] },
-  ],
-}
 
 const UNIVERSE_COLOR: Record<string, string> = {
   webverse: 'var(--wv-primary)',
@@ -53,20 +33,38 @@ const generateTelemetry = (id: string) => {
   }
 }
 
+const ADMIN_FLAGS: Record<number, string> = {
+  1: 'DOOM{last_transmission_o9k8oxu63wvc3sksjil21oqf}',
+  2: 'DOOM{dust_in_lens_txydxk7pk4xqb6d52weevylm}',
+  3: 'DOOM{ashfall_archive_1tcjy06eq4eqtf78l51eaoq3}',
+  4: 'DOOM{protocol_primer_1bp29ipvjf6xsml0z0040eph}',
+  5: 'DOOM{rift_capture_2aojmk18bjvjwfzgrfky2a6s}',
+  6: 'DOOM{quarantine_cipher_cujthgybvpfrpfgqkcffqknd}',
+  7: 'DOOM{frozen_build_z28q6xuirowjr7v5lm0dp2s3}',
+  8: 'DOOM{containment_console_qvb08mba2j13e8x8mxhab118}',
+  9: 'DOOM{memory_ledger_0uexmmhstk43sn691h0w769l}',
+  10: 'DOOM{entropy_collapse_5zm1mfit0gedpccphedzt0pq}',
+  11: 'DOOM{ghost_compiler_r2gtlopvw0nd4hv75q6c0n7v}',
+  12: 'DOOM{redline_relay_0mj83hzfjb5jcgxqzsra8d2g}',
+}
+
 export default function Challenge() {
   const { challengeId } = useParams<{ challengeId: string }>()
   const navigate = useNavigate()
   const {
+    state,
+    isAdmin,
     getChallenge,
     solveChallenge,
     recordWrong,
     isChallengeUnlocked,
   } = useGame()
 
+  const [copied, setCopied] = useState(false)
+
   const challenge = getChallenge(challengeId ?? '')
   const [wrong, setWrong] = useState(false)
   const [showGlitch, setShowGlitch] = useState(false)
-  const [showAuthHeader, setShowAuthHeader] = useState(false)
   const [collapsePhase, setCollapsePhase] = useState(-1)
 
   useEffect(() => {
@@ -100,22 +98,15 @@ export default function Challenge() {
   const handleWrong = () => {
     setWrong(true)
     recordWrong(challenge.id, challenge.portalType)
-    
-    setCollapsePhase(0)
-    setTimeout(() => setCollapsePhase(1), 200)
+    setCollapsePhase(1)
     setTimeout(() => {
-      setCollapsePhase(2)
       setShowGlitch(true)
-    }, 500)
-    setTimeout(() => setCollapsePhase(3), 800)
-    setTimeout(() => setCollapsePhase(4), 1100)
-    setTimeout(() => {
-      setCollapsePhase(5)
-      navigate(`/portal/${challenge.id}?type=${challenge.portalType}`)
-    }, 1500)
+      setTimeout(() => setShowGlitch(false), 500)
+      setWrong(false)
+      setCollapsePhase(0)
+    }, 1000)
   }
 
-  const pixels = PIXEL_DATA[challenge.id]
   const bgVariant = ['webverse', 'osintverse', 'darknet'].includes(challenge.universe) 
     ? challenge.universe as any 
     : 'challenge'
@@ -165,11 +156,14 @@ export default function Challenge() {
           
           <div className="terminal-body">
             <div className="terminal-meta-bar">
-              <span className="challenge__id">{challenge.id.toUpperCase()}</span>
+              <span className="challenge__id" style={{ fontWeight: 'bold', color: 'var(--emerald)' }}>[{challenge.code}]</span>
+              <span style={{ color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.06)', padding: '2px 8px', borderRadius: '3px', fontSize: '0.75rem', letterSpacing: '0.08em' }}>
+                {challenge.category.toUpperCase()}
+              </span>
               <span className="challenge__stone" style={{ color }}>
                 ◆ {challenge.stone.toUpperCase()} STONE
               </span>
-              <span className="challenge__id" style={{ marginLeft: 'auto' }}>
+              <span className="challenge__id" style={{ marginLeft: 'auto', fontWeight: 'bold' }}>
                 {challenge.points} PTS
               </span>
             </div>
@@ -179,38 +173,8 @@ export default function Challenge() {
                 <h1 className="challenge__title">{challenge.title}</h1>
                 <p className="challenge__narrative">{challenge.narrative}</p>
 
-                <NarrativePanel label="BRIEFING">{challenge.description}</NarrativePanel>
+                <NarrativePanel label="OPERATIONAL BRIEFING">{challenge.description}</NarrativePanel>
 
-                {challenge.clueContent && (
-                  <CluePanel
-                    label={challenge.clueContent.label}
-                    body={challenge.clueContent.body}
-                    format={challenge.clueContent.format}
-                    color={color}
-                  />
-                )}
-
-                {challenge.id === 'wv-03' && (
-                  <>
-                    <button className="challenge__auth-btn" onClick={() => setShowAuthHeader(true)}>
-                      🔍 Check Response Headers
-                    </button>
-                    {showAuthHeader && (
-                      <MetadataPanel
-                         headers={{
-                           'Content-Type': 'application/json',
-                           'X-Auth-Token': 'bG9va19zZWNyZXQ=',
-                           'Server': 'Multiverse-Gateway/2.0',
-                           'WWW-Authenticate': 'Bearer realm="multiverse"',
-                         }}
-                      />
-                    )}
-                  </>
-                )}
-
-                {pixels && <HexViewer pixels={pixels} title="PIXEL ANALYSIS" />}
-                {challenge.type === 'decoder' && <DecoderTool />}
-                
                 <HintsPanel challengeId={challenge.id} hints={challenge.hints} />
               </div>
 
@@ -278,14 +242,135 @@ export default function Challenge() {
               </aside>
             </div>
 
+            {challenge.artifactUrl && (
+              <div style={{ margin: '0.5rem 0' }}>
+                <a
+                  href={challenge.artifactUrl}
+                  download={challenge.artifactFilename}
+                  className="btn-artifact-download"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '12px 20px',
+                    background: 'rgba(43, 224, 102, 0.12)',
+                    border: '1px solid var(--emerald, #2BE066)',
+                    color: 'var(--emerald, #2BE066)',
+                    fontFamily: 'var(--mono-font, "Space Mono", monospace)',
+                    fontSize: '0.85rem',
+                    textDecoration: 'none',
+                    borderRadius: '4px',
+                    fontWeight: 'bold',
+                    letterSpacing: '0.08em',
+                    boxShadow: '0 0 15px rgba(43, 224, 102, 0.25)',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  <span>⬇</span> DOWNLOAD PARTICIPANT ARTIFACT // {challenge.artifactFilename?.toUpperCase()}
+                </a>
+              </div>
+            )}
+
+            {challenge.connectionInfo && (
+              <div style={{ margin: '0.5rem 0' }}>
+                <a
+                  href={challenge.connectionInfo}
+                  className="btn-target-connect"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '12px 20px',
+                    background: 'rgba(240, 185, 61, 0.15)',
+                    border: '1px solid var(--signal, #f0b93d)',
+                    color: 'var(--signal, #f0b93d)',
+                    fontFamily: 'var(--mono-font, "Space Mono", monospace)',
+                    fontSize: '0.85rem',
+                    textDecoration: 'none',
+                    borderRadius: '4px',
+                    fontWeight: 'bold',
+                    letterSpacing: '0.08em',
+                    boxShadow: '0 0 15px rgba(240, 185, 61, 0.3)',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  <span>⚡</span> CONNECT TO LIVE TARGET // {challenge.connectionInfo}
+                </a>
+              </div>
+            )}
+
+            {isAdmin && (
+              <div
+                style={{
+                  margin: '1.25rem 0',
+                  padding: '1rem 1.25rem',
+                  background: 'rgba(199, 58, 50, 0.12)',
+                  border: '1px solid var(--danger, #c73a32)',
+                  borderRadius: '4px',
+                  fontFamily: 'var(--mono-font, "Space Mono", monospace)',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                  <span style={{ color: 'var(--danger, #c73a32)', fontWeight: 'bold', fontSize: '0.8rem', letterSpacing: '0.1em' }}>
+                    👑 OVERSEER INTELLIGENCE OVERRIDE // ADMIN PRIVILEGES
+                  </span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    CTFd ID: #{challenge.ctfdId}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>OFFICIAL FLAG:</span>
+                  <code style={{ background: '#070c08', border: '1px solid rgba(255,255,255,0.15)', padding: '4px 8px', borderRadius: '3px', color: 'var(--emerald, #2be066)', fontSize: '0.85rem' }}>
+                    {ADMIN_FLAGS[challenge.ctfdId] || 'DOOM{...}'}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(ADMIN_FLAGS[challenge.ctfdId] || '')
+                      setCopied(true)
+                      setTimeout(() => setCopied(false), 2000)
+                    }}
+                    style={{
+                      background: 'rgba(255,255,255,0.08)',
+                      border: '1px solid rgba(255,255,255,0.2)',
+                      color: copied ? 'var(--emerald)' : '#fff',
+                      padding: '4px 10px',
+                      borderRadius: '3px',
+                      fontSize: '0.7rem',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {copied ? '✓ COPIED' : '📋 COPY FLAG'}
+                  </button>
+                  <a
+                    href={`http://localhost:8000/admin/challenges/${challenge.ctfdId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      fontSize: '0.75rem',
+                      color: 'var(--signal, #f0b93d)',
+                      textDecoration: 'none',
+                      marginLeft: 'auto',
+                    }}
+                  >
+                    🛠️ EDIT IN CTFd ADMIN ↗
+                  </a>
+                </div>
+              </div>
+            )}
+
             <div className="terminal-divider">
               <span>──</span>
-              <span>EXECUTE FLAG SUBMISSION</span>
+              <span>EXECUTE FLAG SUBMISSION // CTFD SECURE VALIDATOR</span>
               <span className="terminal-divider-line"></span>
             </div>
 
             <FlagInput
-              flag={challenge.flag}
+              ctfdId={challenge.ctfdId}
               onCorrect={handleCorrect}
               onWrong={handleWrong}
               color={color}

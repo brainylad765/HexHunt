@@ -2,60 +2,83 @@ import {
   createContext,
   useContext,
   useReducer,
+  useState,
   useEffect,
   useMemo,
   type ReactNode,
 } from 'react'
 import { challenges, type ChallengeData, type Stone, type Universe } from '../data/challenges'
+import {
+  getCurrentUser,
+  getCurrentTeam,
+  getChallenges,
+  logoutFromCtfd,
+  getNotifications,
+  getConfigs,
+  type CTFdUser,
+  type CTFdTeam,
+  type CTFdNotification,
+} from '../services/ctfd'
 
 // ── State shape ─────────────────────────────────────────────
-interface Participant {
+export interface Participant {
   name: string
   email: string
+  teamName?: string
+  score?: number
 }
 
-interface ChallengeProgress {
+export interface ChallengeProgress {
   solved: boolean
   attempts: number
   wrongPathVisited: string[]
   hintsUsed: number
 }
 
-interface GameState {
+export interface GameState {
   participant: Participant | null
   progress: Record<string, ChallengeProgress>
   stones: Stone[]
   startedAt: number | null
-  /** Tracks which challenge ID is currently "active" per universe */
   currentChallengeId: Record<Universe, string | null>
-  /** Tracks which universes are unlocked */
   universeUnlocked: Record<Universe, boolean>
+  ctfdUser: CTFdUser | null
+  ctfdTeam: CTFdTeam | null
 }
 
 type Action =
   | { type: 'START'; payload: Participant }
+  | { type: 'SYNC_CTFD'; payload: { user: CTFdUser | null; team: CTFdTeam | null; solvedCtfdIds: number[] } }
   | { type: 'SOLVE'; payload: { challengeId: string; stone: Stone; nextChallengeId: string | null } }
   | { type: 'RECORD_WRONG'; payload: { challengeId: string; portalId: string } }
   | { type: 'USE_HINT'; payload: { challengeId: string } }
   | { type: 'SET_CURRENT'; payload: { universe: Universe; challengeId: string | null } }
   | { type: 'RESET' }
 
-// ── Reducer ─────────────────────────────────────────────────
+const defaultParticipant: Participant = {
+  name: 'OPERATIVE',
+  email: 'player1@hexhunt.local',
+  teamName: 'TEAM ALPHA',
+  score: 0,
+}
+
 const initialState: GameState = {
-  participant: null,
+  participant: defaultParticipant,
   progress: {},
   stones: [],
-  startedAt: null,
+  startedAt: Date.now(),
   currentChallengeId: {
-    webverse: null,
-    osintverse: null,
-    darknet: null,
+    webverse: 'wv-01',
+    osintverse: 'os-01',
+    darknet: 'dn-01',
   },
   universeUnlocked: {
-    webverse: true,   // Always unlocked first
-    osintverse: false,
-    darknet: false,
+    webverse: true,
+    osintverse: true, // All 3 sectors accessible in CTF
+    darknet: true,
   },
+  ctfdUser: null,
+  ctfdTeam: null,
 }
 
 function gameReducer(state: GameState, action: Action): GameState {
@@ -67,47 +90,61 @@ function gameReducer(state: GameState, action: Action): GameState {
         startedAt: Date.now(),
         currentChallengeId: {
           webverse: 'wv-01',
-          osintverse: null,
-          darknet: null,
+          osintverse: 'os-01',
+          darknet: 'dn-01',
         },
         universeUnlocked: {
           webverse: true,
-          osintverse: false,
-          darknet: false,
+          osintverse: true,
+          darknet: true,
         },
       }
+
+    case 'SYNC_CTFD': {
+      const { user, team, solvedCtfdIds } = action.payload
+      const newProgress = { ...state.progress }
+      const newStones = [...state.stones]
+
+      challenges.forEach((ch) => {
+        if (solvedCtfdIds.includes(ch.ctfdId)) {
+          newProgress[ch.id] = {
+            ...(newProgress[ch.id] || { attempts: 0, wrongPathVisited: [], hintsUsed: 0 }),
+            solved: true,
+          }
+          if (!newStones.includes(ch.stone)) {
+            newStones.push(ch.stone)
+          }
+        }
+      })
+
+      const participant = user
+        ? {
+            name: user.name,
+            email: user.email,
+            teamName: team?.name || 'SOLO',
+            score: team?.score ?? user.score ?? 0,
+          }
+        : state.participant
+
+      return {
+        ...state,
+        participant,
+        progress: newProgress,
+        stones: newStones,
+        ctfdUser: user,
+        ctfdTeam: team,
+      }
+    }
 
     case 'SOLVE': {
       const { challengeId, stone, nextChallengeId } = action.payload
       const existing = state.progress[challengeId]
-
-      // Advance current challenge in the universe
       const challenge = challenges.find((c) => c.id === challengeId)
       const universe = challenge?.universe ?? 'webverse'
 
       const newCurrent = {
         ...state.currentChallengeId,
         [universe]: nextChallengeId,
-      }
-
-      // Unlock next universe if applicable
-      const allWebverseSolved = ['wv-01', 'wv-02', 'wv-03'].every(
-        (id) => id === challengeId || state.progress[id]?.solved || id === nextChallengeId
-      )
-      const allOsintverseSolved = ['os-01', 'os-02', 'os-03'].every(
-        (id) => id === challengeId || state.progress[id]?.solved || id === nextChallengeId
-      )
-
-      let universeUnlocked = { ...state.universeUnlocked }
-      // If completing the last webverse challenge, unlock osintverse
-      if (universe === 'webverse' && !nextChallengeId && allWebverseSolved) {
-        universeUnlocked.osintverse = true
-        newCurrent.osintverse = 'os-01'
-      }
-      // If completing the last osintverse challenge, unlock darknet
-      if (universe === 'osintverse' && !nextChallengeId && allOsintverseSolved) {
-        universeUnlocked.darknet = true
-        newCurrent.darknet = 'dn-01'
       }
 
       return {
@@ -118,7 +155,9 @@ function gameReducer(state: GameState, action: Action): GameState {
         },
         stones: state.stones.includes(stone) ? state.stones : [...state.stones, stone],
         currentChallengeId: newCurrent,
-        universeUnlocked,
+        participant: state.participant
+          ? { ...state.participant, score: (state.participant.score || 0) + (challenge?.points || 0) }
+          : null,
       }
     }
 
@@ -173,12 +212,19 @@ function gameReducer(state: GameState, action: Action): GameState {
 // ── Context ─────────────────────────────────────────────────
 interface GameContextValue {
   state: GameState
+  isAdmin: boolean
+  notifications: CTFdNotification[]
+  dismissedNotificationIds: number[]
+  dismissNotification: (id: number) => void
+  isScoreboardFrozen: boolean
   startGame: (name: string, email: string) => void
   solveChallenge: (challengeId: string) => void
   recordWrong: (challengeId: string, portalId: string) => void
   useHint: (challengeId: string) => void
   setCurrentChallenge: (universe: Universe, challengeId: string | null) => void
   resetGame: () => void
+  logoutUser: () => Promise<void>
+  refreshFromCtfd: () => Promise<void>
   getChallenge: (id: string) => ChallengeData | undefined
   getProgress: (id: string) => ChallengeProgress | undefined
   isStoneCollected: (s: Stone) => boolean
@@ -189,9 +235,7 @@ interface GameContextValue {
 }
 
 const GameContext = createContext<GameContextValue | null>(null)
-
-// ── Provider ────────────────────────────────────────────────
-const STORAGE_KEY = 'doomsday_ctf_save'
+const STORAGE_KEY = 'hexhunt_doomsday_save'
 
 function loadSaved(): GameState | null {
   try {
@@ -199,20 +243,22 @@ function loadSaved(): GameState | null {
     if (!raw) return null
     const parsed = JSON.parse(raw) as Partial<GameState>
     return {
-      participant: parsed.participant ?? null,
+      participant: parsed.participant || defaultParticipant,
       progress: parsed.progress ?? {},
       stones: Array.isArray(parsed.stones) ? parsed.stones : [],
       startedAt: typeof parsed.startedAt === 'number' ? parsed.startedAt : null,
       currentChallengeId: {
-        webverse: parsed.currentChallengeId?.webverse ?? null,
-        osintverse: parsed.currentChallengeId?.osintverse ?? null,
-        darknet: parsed.currentChallengeId?.darknet ?? null,
+        webverse: parsed.currentChallengeId?.webverse ?? 'wv-01',
+        osintverse: parsed.currentChallengeId?.osintverse ?? 'os-01',
+        darknet: parsed.currentChallengeId?.darknet ?? 'dn-01',
       },
       universeUnlocked: {
-        webverse: parsed.universeUnlocked?.webverse ?? true,
-        osintverse: parsed.universeUnlocked?.osintverse ?? false,
-        darknet: parsed.universeUnlocked?.darknet ?? false,
+        webverse: true,
+        osintverse: true,
+        darknet: true,
       },
+      ctfdUser: parsed.ctfdUser ?? null,
+      ctfdTeam: parsed.ctfdTeam ?? null,
     }
   } catch {
     return null
@@ -221,6 +267,61 @@ function loadSaved(): GameState | null {
 
 export function GameProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(gameReducer, initialState, () => loadSaved() ?? initialState)
+  const [notifications, setNotifications] = useState<CTFdNotification[]>([])
+  const [dismissedNotificationIds, setDismissedNotificationIds] = useState<number[]>([])
+  const [isScoreboardFrozen, setIsScoreboardFrozen] = useState(false)
+
+  const isAdmin = useMemo(() => {
+    return state.ctfdUser?.type === 'admin' || state.ctfdUser?.name?.toLowerCase() === 'admin'
+  }, [state.ctfdUser])
+
+  const dismissNotification = (id: number) => {
+    setDismissedNotificationIds((prev) => (prev.includes(id) ? prev : [...prev, id]))
+  }
+
+  const refreshFromCtfd = async () => {
+    try {
+      const [user, team, chals, notifs, cfgs] = await Promise.all([
+        getCurrentUser(),
+        getCurrentTeam(),
+        getChallenges(),
+        getNotifications(),
+        getConfigs(),
+      ])
+
+      if (Array.isArray(notifs)) {
+        setNotifications(notifs)
+      }
+
+      if (cfgs && (cfgs.freeze === 'true' || cfgs.freeze === '1')) {
+        setIsScoreboardFrozen(true)
+      } else {
+        setIsScoreboardFrozen(false)
+      }
+
+      const solvedCtfdIds: number[] = []
+      chals.forEach((c) => {
+        // If solved by user's team in CTFd
+        if (c.solved_by_me) {
+          solvedCtfdIds.push(c.id)
+        }
+      })
+
+      dispatch({
+        type: 'SYNC_CTFD',
+        payload: { user, team, solvedCtfdIds },
+      })
+    } catch (err) {
+      console.warn('Could not sync with CTFd backend:', err)
+    }
+  }
+
+  // Auto-sync with CTFd on mount
+  useEffect(() => {
+    refreshFromCtfd()
+    const interval = setInterval(refreshFromCtfd, 15000)
+    return () => clearInterval(interval)
+  }, [])
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
@@ -233,6 +334,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const ch = challenges.find((c) => c.id === challengeId)
     if (!ch) return
     dispatch({ type: 'SOLVE', payload: { challengeId, stone: ch.stone, nextChallengeId: ch.nextChallengeId } })
+    refreshFromCtfd()
   }
 
   const recordWrong = (challengeId: string, portalId: string) =>
@@ -246,20 +348,31 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   const resetGame = () => dispatch({ type: 'RESET' })
 
+  const logoutUser = async () => {
+    try {
+      await logoutFromCtfd()
+      localStorage.removeItem(STORAGE_KEY)
+      dispatch({
+        type: 'SYNC_CTFD',
+        payload: { user: null, team: null, solvedCtfdIds: [] },
+      })
+      dispatch({ type: 'RESET' })
+      await refreshFromCtfd()
+    } catch (e) {
+      console.error('Logout error:', e)
+    }
+  }
+
   const getChallenge = (id: string) => challenges.find((c) => c.id === id)
   const getProgress = (id: string) => state.progress[id]
-
   const isStoneCollected = (s: Stone) => state.stones.includes(s)
-
   const isUniverseUnlocked = (u: Universe) => state.universeUnlocked[u]
 
-  // A challenge is unlocked if its universe is unlocked AND the previous challenge in the chain is solved
+  // Allow playing all unlocked challenges in the universe
   const isChallengeUnlocked = (challengeId: string) => {
     const ch = challenges.find((c) => c.id === challengeId)
     if (!ch) return false
-    if (!state.universeUnlocked[ch.universe]) return false
-    if (!ch.nextChallengeId) return true // First challenge in universe
-    return state.progress[ch.nextChallengeId]?.solved === true
+    return state.universeUnlocked[ch.universe] === true
   }
 
   const isChallengeSolved = (id: string) => state.progress[id]?.solved === true
@@ -270,24 +383,21 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return challenges.find((c) => c.id === ch.nextChallengeId)
   }
 
-  // Count solved per universe
-  const universeStats = useMemo(() => {
-    const count = (ids: string[]) => ids.filter((id) => state.progress[id]?.solved).length
-    return {
-      webverse: { solved: count(['wv-01', 'wv-02', 'wv-03']), total: 3 },
-      osintverse: { solved: count(['os-01', 'os-02', 'os-03']), total: 3 },
-      darknet: { solved: count(['dn-01', 'dn-02', 'dn-03', 'dn-04', 'dn-05', 'dn-06']), total: 6 },
-    }
-  }, [state.progress])
-
   const value: GameContextValue = {
     state,
+    isAdmin,
+    notifications,
+    dismissedNotificationIds,
+    dismissNotification,
+    isScoreboardFrozen,
     startGame,
     solveChallenge,
     recordWrong,
     useHint,
     setCurrentChallenge,
     resetGame,
+    logoutUser,
+    refreshFromCtfd,
     getChallenge,
     getProgress,
     isStoneCollected,

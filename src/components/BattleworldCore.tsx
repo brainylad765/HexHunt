@@ -226,7 +226,6 @@ export default function BattleworldCore({ stoneCount }: BattleworldCoreProps) {
         });
         
         try {
-          renderer.forceContextLoss();
           renderer.dispose();
         } catch (e) {}
       };
